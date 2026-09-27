@@ -587,154 +587,357 @@ def generate_liquid_html(initial_state: dict) -> str:
   .custom-gamemode-box.open {{
     display: block;
   }}
+
+  /* View panels for Main vs Config views */
+  .view-panel {{
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+  }}
+  .view-panel.active {{
+    display: flex;
+  }}
+
+  /* Dedicated Config Screen */
+  .config-header {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }}
+  .back-btn {{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #38BDF8;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }}
+  .back-btn:hover {{
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+    transform: translateX(-2px);
+  }}
+  .config-title-box {{
+    text-align: right;
+  }}
+  .config-title {{
+    font-size: 13px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: -0.2px;
+  }}
+  .config-subtitle {{
+    font-size: 10px;
+    color: #94A3B8;
+  }}
+  .config-section {{
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }}
+  .field-label-row {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }}
+  .reset-link {{
+    font-size: 10.5px;
+    color: #38BDF8;
+    cursor: pointer;
+    text-decoration: underline;
+    opacity: 0.85;
+    transition: opacity 0.2s;
+  }}
+  .reset-link:hover {{
+    opacity: 1;
+  }}
+  .monospace-input {{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 11px !important;
+    letter-spacing: 0.3px;
+  }}
+  .config-feedback {{
+    min-height: 18px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #38BDF8;
+    text-align: center;
+    padding: 2px 0;
+    transition: all 0.2s ease;
+  }}
+  .save-config-btn {{
+    width: 100%;
+    height: 38px;
+    background: linear-gradient(135deg, #5865F2 0%, #4752C4 100%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 9px;
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(88, 101, 242, 0.4);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+  }}
+  .save-config-btn:hover {{
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(88, 101, 242, 0.6);
+  }}
+  .save-config-btn:active {{
+    transform: translateY(1px);
+  }}
+  .preset-badge {{
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(56, 189, 248, 0.15);
+    border-radius: 4px;
+    color: #38BDF8;
+    font-size: 9.5px;
+    font-weight: 600;
+    margin-left: 6px;
+  }}
 </style>
 </head>
 <body>
   <div class="liquid-container">
-    <!-- Header -->
-    <div class="header">
-      <div class="header-left">
-        {DISCORD_SVG}
-        <div class="header-text">
-          <h1>Discord RPC</h1>
-          <p>League of Legends</p>
-        </div>
-      </div>
-      <div class="gear-btn" onclick="sendAction('toggle_settings')" title="Configuración">
-        {GEAR_SVG}
-      </div>
-    </div>
-
-    <!-- Mode Cards -->
-    <div class="mode-cards">
-      <!-- Card 1: Modo Oficial -->
-      <div class="mode-card active" id="card-oficial" onclick="sendAction('select_mode', {{mode: 'oficial'}})">
-        <div class="radio-indicator">
-          <div class="radio-dot"></div>
-        </div>
-        <div class="card-content">
-          <div class="card-title">Modo Oficial</div>
-          <div class="card-subtitle">Solo LoL + Tiempo</div>
-        </div>
-      </div>
-
-      <!-- Card 2: Modo Detallado -->
-      <div class="mode-card" id="card-detallado" onclick="sendAction('select_mode', {{mode: 'detallado'}})">
-        <div class="radio-indicator">
-          <div class="radio-dot"></div>
-        </div>
-        <div class="card-content">
-          <div class="card-title">Modo Detallado</div>
-          <div class="card-subtitle">Campeón, Rango y Modo</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Settings Panel (Expandable for detailed mode) -->
-    <div class="settings-panel" id="panel-settings">
-      <!-- Champion Searcher with Live Avatars -->
-      <div class="field-row">
-        <label class="field-label">
-          <span>Campeón</span>
-          <span style="font-size: 9.5px; color: #38BDF8; font-weight: 500;">173 disponibles</span>
-        </label>
-        <div class="champ-picker-wrap">
-          <div class="champ-avatar-box">
-            <img id="champ-avatar" class="champ-avatar" src="" alt="Avatar" onerror="this.src='https://ddragon.leagueoflegends.com/cdn/{FALLBACK_VERSION}/img/champion/Malzahar.png'">
+    <!-- VIEW 1: MAIN PRESENCE SCREEN -->
+    <div id="view-main" class="view-panel active">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-left">
+          {DISCORD_SVG}
+          <div class="header-text">
+            <h1>Discord RPC</h1>
+            <p id="main-subtitle">League of Legends</p>
           </div>
-          <div class="champ-search-box">
-            <div class="champ-search-icon">
-              {SEARCH_SVG}
+        </div>
+        <div class="gear-btn" onclick="openConfigView()" title="Configuración de Juegos y Client ID">
+          {GEAR_SVG}
+        </div>
+      </div>
+
+      <!-- Mode Cards -->
+      <div class="mode-cards">
+        <!-- Card 1: Modo Oficial -->
+        <div class="mode-card active" id="card-oficial" onclick="sendAction('select_mode', {{mode: 'oficial'}})">
+          <div class="radio-indicator">
+            <div class="radio-dot"></div>
+          </div>
+          <div class="card-content">
+            <div class="card-title">Modo Oficial</div>
+            <div class="card-subtitle">Solo Juego + Tiempo</div>
+          </div>
+        </div>
+
+        <!-- Card 2: Modo Detallado -->
+        <div class="mode-card" id="card-detallado" onclick="sendAction('select_mode', {{mode: 'detallado'}})">
+          <div class="radio-indicator">
+            <div class="radio-dot"></div>
+          </div>
+          <div class="card-content">
+            <div class="card-title">Modo Detallado</div>
+            <div class="card-subtitle">Campeón, Rango y Modo</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Panel (Expandable for detailed mode) -->
+      <div class="settings-panel" id="panel-settings">
+        <!-- Champion Searcher with Live Avatars -->
+        <div class="field-row">
+          <label class="field-label">
+            <span>Campeón</span>
+            <span style="font-size: 9.5px; color: #38BDF8; font-weight: 500;">173 disponibles</span>
+          </label>
+          <div class="champ-picker-wrap">
+            <div class="champ-avatar-box">
+              <img id="champ-avatar" class="champ-avatar" src="" alt="Avatar" onerror="this.src='https://ddragon.leagueoflegends.com/cdn/{FALLBACK_VERSION}/img/champion/Malzahar.png'">
             </div>
-            <input type="text" id="champ-input" class="field-input champ-search-input" placeholder="Buscar campeón (ej. Yasuo, Jinx, Ahri)..." autocomplete="off" onfocus="openChampDropdown()" oninput="filterChampions(this.value)" onchange="sendAction('change_champion', {{ name: this.value.trim() }})">
-            <!-- Autocomplete Dropdown -->
-            <div id="champ-dropdown" class="champ-dropdown"></div>
+            <div class="champ-search-box">
+              <div class="champ-search-icon">
+                {SEARCH_SVG}
+              </div>
+              <input type="text" id="champ-input" class="field-input champ-search-input" placeholder="Buscar campeón (ej. Yasuo, Jinx, Ahri)..." autocomplete="off" onfocus="openChampDropdown()" oninput="filterChampions(this.value)" onchange="sendAction('change_champion', {{ name: this.value.trim() }})">
+              <!-- Autocomplete Dropdown -->
+              <div id="champ-dropdown" class="champ-dropdown"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rank & Division Selection -->
+        <div class="rank-row">
+          <div class="field-row" style="flex: 2;">
+            <label class="field-label">Rango</label>
+            <select id="rank-select" class="field-select" onchange="sendAction('change_rank', {{rank: this.value}})">
+              <option value="Hierro">Hierro</option>
+              <option value="Bronce">Bronce</option>
+              <option value="Plata">Plata</option>
+              <option value="Oro">Oro</option>
+              <option value="Platino">Platino</option>
+              <option value="Esmeralda">Esmeralda</option>
+              <option value="Diamante">Diamante</option>
+              <option value="Maestro">Maestro</option>
+              <option value="Gran Maestro">Gran Maestro</option>
+              <option value="Challenger">Challenger</option>
+              <option value="Unranked">Unranked</option>
+            </select>
+          </div>
+
+          <div class="field-row" id="division-container" style="flex: 1;">
+            <label class="field-label">División</label>
+            <select id="division-select" class="field-select" onchange="sendAction('change_division', {{division: this.value}})">
+              <option value="I">I</option>
+              <option value="II">II</option>
+              <option value="III">III</option>
+              <option value="IV">IV</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Game Mode Selection (Dropdown + Custom Text fallback) -->
+        <div class="field-row">
+          <label class="field-label">Modo de Juego</label>
+          <select id="gamemode-select" class="field-select" onchange="onGameModeSelect(this.value)">
+            {game_modes_options_html}
+            <option value="__custom__">✏️ Personalizado (Escribir texto libre)...</option>
+          </select>
+          <div id="custom-gamemode-wrap" class="custom-gamemode-box">
+            <input type="text" id="gamemode-input" class="field-input" placeholder="Escribe el modo de juego..." onchange="sendAction('change_game_mode', {{game_mode: this.value}})">
           </div>
         </div>
       </div>
 
-      <!-- Rank & Division Selection -->
-      <div class="rank-row">
-        <div class="field-row" style="flex: 2;">
-          <label class="field-label">Rango</label>
-          <select id="rank-select" class="field-select" onchange="sendAction('change_rank', {{rank: this.value}})">
-            <option value="Hierro">Hierro</option>
-            <option value="Bronce">Bronce</option>
-            <option value="Plata">Plata</option>
-            <option value="Oro">Oro</option>
-            <option value="Platino">Platino</option>
-            <option value="Esmeralda">Esmeralda</option>
-            <option value="Diamante">Diamante</option>
-            <option value="Maestro">Maestro</option>
-            <option value="Gran Maestro">Gran Maestro</option>
-            <option value="Challenger">Challenger</option>
-            <option value="Unranked">Unranked</option>
-          </select>
+      <!-- Switches Section -->
+      <div class="switches-section">
+        <!-- Switch 1: Auto-reset -->
+        <div class="switch-row">
+          <div class="switch-left">
+            <div class="switch-icon-box">
+              {SYNC_SVG}
+            </div>
+            <div>
+              <div class="switch-label-title">Reiniciar partida</div>
+              <div class="switch-label-subtitle">automáticamente cada 20–30 min</div>
+            </div>
+          </div>
+          <div class="ios-switch on" id="switch-autoreset" onclick="toggleSwitch('autoreset')">
+            <div class="ios-thumb"></div>
+          </div>
         </div>
 
-        <div class="field-row" id="division-container" style="flex: 1;">
-          <label class="field-label">División</label>
-          <select id="division-select" class="field-select" onchange="sendAction('change_division', {{division: this.value}})">
-            <option value="I">I</option>
-            <option value="II">II</option>
-            <option value="III">III</option>
-            <option value="IV">IV</option>
-          </select>
+        <!-- Switch 2: Auto-run -->
+        <div class="switch-row">
+          <div class="switch-left">
+            <div class="switch-icon-box">
+              {LAPTOP_SVG}
+            </div>
+            <div>
+              <div class="switch-label-title">Iniciar automáticamente</div>
+              <div class="switch-label-subtitle">con macOS (Auto-run)</div>
+            </div>
+          </div>
+          <div class="ios-switch" id="switch-autorun" onclick="toggleSwitch('autorun')">
+            <div class="ios-thumb"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Game Mode Selection (Dropdown + Custom Text fallback) -->
-      <div class="field-row">
-        <label class="field-label">Modo de Juego</label>
-        <select id="gamemode-select" class="field-select" onchange="onGameModeSelect(this.value)">
-          {game_modes_options_html}
-          <option value="__custom__">✏️ Personalizado (Escribir texto libre)...</option>
-        </select>
-        <div id="custom-gamemode-wrap" class="custom-gamemode-box">
-          <input type="text" id="gamemode-input" class="field-input" placeholder="Escribe el modo de juego..." onchange="sendAction('change_game_mode', {{game_mode: this.value}})">
-        </div>
+      <!-- Action Button -->
+      <div class="action-btn" id="btn-action" onclick="sendAction('action_button')">
+        <span id="btn-icon">■</span>
+        <span id="btn-text">DETENER EN DISCORD</span>
       </div>
     </div>
 
-    <!-- Switches Section -->
-    <div class="switches-section">
-      <!-- Switch 1: Auto-reset -->
-      <div class="switch-row">
-        <div class="switch-left">
-          <div class="switch-icon-box">
-            {SYNC_SVG}
-          </div>
-          <div>
-            <div class="switch-label-title">Reiniciar partida</div>
-            <div class="switch-label-subtitle">automáticamente cada 20–30 min</div>
-          </div>
-        </div>
-        <div class="ios-switch on" id="switch-autoreset" onclick="toggleSwitch('autoreset')">
-          <div class="ios-thumb"></div>
+    <!-- VIEW 2: DEDICATED CONFIGURATION & PRESETS SCREEN -->
+    <div id="view-config" class="view-panel">
+      <!-- Config Header -->
+      <div class="config-header">
+        <button class="back-btn" onclick="closeConfigView()">
+          <span>← Volver</span>
+        </button>
+        <div class="config-title-box">
+          <div class="config-title">Configuración & Juegos</div>
+          <div class="config-subtitle">Top 10 Presets & Client ID</div>
         </div>
       </div>
 
-      <!-- Switch 2: Auto-run -->
-      <div class="switch-row">
-        <div class="switch-left">
-          <div class="switch-icon-box">
-            {LAPTOP_SVG}
+      <div class="config-section">
+        <!-- Game Preset Dropdown -->
+        <div class="field-row">
+          <div class="field-label-row">
+            <label class="field-label" style="margin-bottom: 0;">Juego (Top 10 Más Jugados)</label>
+            <span class="preset-badge" id="badge-game-status">Oficial</span>
           </div>
-          <div>
-            <div class="switch-label-title">Iniciar automáticamente</div>
-            <div class="switch-label-subtitle">con macOS (Auto-run)</div>
-          </div>
+          <select id="config-game-select" class="field-select" onchange="onGamePresetChange(this.value)">
+            <option value="lol">🏆 League of Legends (Riot Games)</option>
+            <option value="valorant">🎯 VALORANT (Riot Games)</option>
+            <option value="cs2">🔫 Counter-Strike 2 (Valve)</option>
+            <option value="minecraft">⛏️ Minecraft (Mojang)</option>
+            <option value="fortnite">🪂 Fortnite (Epic Games)</option>
+            <option value="gtav">🚗 Grand Theft Auto V (Rockstar)</option>
+            <option value="apex">⚡ Apex Legends (Respawn / EA)</option>
+            <option value="overwatch2">🛡️ Overwatch 2 (Blizzard)</option>
+            <option value="dota2">⚔️ Dota 2 (Valve)</option>
+            <option value="rocketleague">🚀 Rocket League (Psyonix)</option>
+            <option value="custom">✏️ Personalizado (Client ID propio)...</option>
+          </select>
         </div>
-        <div class="ios-switch" id="switch-autorun" onclick="toggleSwitch('autorun')">
-          <div class="ios-thumb"></div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Action Button -->
-    <div class="action-btn" id="btn-action" onclick="sendAction('action_button')">
-      <span id="btn-icon">■</span>
-      <span id="btn-text">DETENER EN DISCORD</span>
+        <!-- Discord Client ID -->
+        <div class="field-row">
+          <div class="field-label-row">
+            <label class="field-label" style="margin-bottom: 0;">Discord Application Client ID</label>
+            <span class="reset-link" onclick="restoreDefaultClientId()">Restaurar Oficial</span>
+          </div>
+          <input type="text" id="config-client-id" class="field-input monospace-input" placeholder="Client ID de Discord..." oninput="onClientIdInput()">
+        </div>
+
+        <!-- Status Details -->
+        <div class="field-row">
+          <label class="field-label">Estado de la Presencia (Details)</label>
+          <input type="text" id="config-details" class="field-input" placeholder="Ej: En partida, Competitivo...">
+        </div>
+
+        <!-- Match Duration -->
+        <div class="field-row">
+          <label class="field-label">Duración Estimada de Partida</label>
+          <select id="config-duration" class="field-select">
+            <option value="15">15 minutos (Partidas cortas)</option>
+            <option value="20">20 minutos (Fortnite / ARAM)</option>
+            <option value="25">25 minutos (Recomendado LoL)</option>
+            <option value="30">30 minutos (CS2 / Shooter)</option>
+            <option value="35">35 minutos (VALORANT / Competitivo)</option>
+            <option value="45">45 minutos (Minecraft / Dota 2)</option>
+            <option value="60">60 minutos (GTA V / Sesión libre)</option>
+          </select>
+        </div>
+
+        <!-- Feedback message -->
+        <div id="config-feedback" class="config-feedback"></div>
+
+        <!-- Save Button -->
+        <button class="save-config-btn" onclick="saveConfig()">
+          <span>💾 GUARDAR Y RECONECTAR</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -897,11 +1100,187 @@ def generate_liquid_html(initial_state: dict) -> str:
     }}
 
     /* =========================================================================
+       Top 10 Games Presets & Configuration Screen Logic
+       ========================================================================= */
+    const PRESETS = {{
+      "lol": {{
+        name: "League of Legends",
+        client_id: "1402418696126992445",
+        details: "En partida",
+        duration: "25"
+      }},
+      "valorant": {{
+        name: "VALORANT",
+        client_id: "700142994017648710",
+        details: "Competitivo",
+        duration: "35"
+      }},
+      "cs2": {{
+        name: "Counter-Strike 2",
+        client_id: "1157771746215391302",
+        details: "Premier Competitivo",
+        duration: "30"
+      }},
+      "minecraft": {{
+        name: "Minecraft",
+        client_id: "698942205566877706",
+        details: "Modo Supervivencia",
+        duration: "45"
+      }},
+      "fortnite": {{
+        name: "Fortnite",
+        client_id: "432980957394370572",
+        details: "Battle Royale",
+        duration: "20"
+      }},
+      "gtav": {{
+        name: "Grand Theft Auto V",
+        client_id: "650800318536646696",
+        details: "GTA Online / FiveM",
+        duration: "60"
+      }},
+      "apex": {{
+        name: "Apex Legends",
+        client_id: "543884846435401729",
+        details: "Tríos Clasificatorios",
+        duration: "20"
+      }},
+      "overwatch2": {{
+        name: "Overwatch 2",
+        client_id: "446342898783453185",
+        details: "Competitivo",
+        duration: "20"
+      }},
+      "dota2": {{
+        name: "Dota 2",
+        client_id: "378854498308620288",
+        details: "All Pick Clasificatoria",
+        duration: "40"
+      }},
+      "rocketleague": {{
+        name: "Rocket League",
+        client_id: "379286088717369344",
+        details: "Competitivo 3v3",
+        duration: "15"
+      }},
+      "custom": {{
+        name: "Personalizado",
+        client_id: "",
+        details: "Jugando",
+        duration: "30"
+      }}
+    }};
+
+    function openConfigView() {{
+      sendAction('toggle_settings');
+    }}
+
+    function closeConfigView() {{
+      sendAction('close_settings');
+    }}
+
+    function onGamePresetChange(gameId) {{
+      const preset = PRESETS[gameId] || PRESETS['custom'];
+      const clientIdInput = document.getElementById('config-client-id');
+      const detailsInput = document.getElementById('config-details');
+      const durationSelect = document.getElementById('config-duration');
+      const badge = document.getElementById('badge-game-status');
+
+      if (gameId === 'custom') {{
+        if (badge) badge.textContent = 'Personalizado';
+        clientIdInput.placeholder = 'Ingresa tu Discord Client ID...';
+        clientIdInput.focus();
+      }} else {{
+        if (badge) badge.textContent = 'Oficial';
+        clientIdInput.value = preset.client_id;
+        detailsInput.value = preset.details;
+        durationSelect.value = preset.duration;
+      }}
+    }}
+
+    function restoreDefaultClientId() {{
+      const gameSelect = document.getElementById('config-game-select');
+      const gameId = gameSelect ? gameSelect.value : 'lol';
+      const preset = PRESETS[gameId] || PRESETS['lol'];
+      document.getElementById('config-client-id').value = preset.client_id;
+      document.getElementById('config-details').value = preset.details;
+      document.getElementById('config-duration').value = preset.duration;
+      const fb = document.getElementById('config-feedback');
+      if (fb) {{
+        fb.textContent = '✓ Valores oficiales restaurados';
+        setTimeout(() => {{ if (fb.textContent.includes('restaurados')) fb.textContent = ''; }}, 2500);
+      }}
+    }}
+
+    function saveConfig() {{
+      const gameId = document.getElementById('config-game-select').value;
+      const clientId = document.getElementById('config-client-id').value.trim();
+      const details = document.getElementById('config-details').value.trim();
+      const durationMin = parseInt(document.getElementById('config-duration').value, 10) || 25;
+
+      const fb = document.getElementById('config-feedback');
+      if (fb) fb.textContent = '✓ Guardando y reconectando a Discord...';
+
+      sendAction('save_config', {{
+        game_id: gameId,
+        client_id: clientId,
+        details: details,
+        duration_min: durationMin
+      }});
+
+      setTimeout(() => {{
+        closeConfigView();
+      }}, 500);
+    }}
+
+    /* =========================================================================
        State Synchronization from Cocoa / WebKit
        ========================================================================= */
     window.updateLiquidUI = function(state) {{
       if (!state) return;
       currentState = Object.assign(currentState, state);
+
+      // View switching between #view-main and #view-config
+      const viewMain = document.getElementById('view-main');
+      const viewConfig = document.getElementById('view-config');
+      if (viewMain && viewConfig) {{
+        if (currentState.settings_expanded) {{
+          viewMain.classList.remove('active');
+          viewConfig.classList.add('active');
+        }} else {{
+          viewConfig.classList.remove('active');
+          viewMain.classList.add('active');
+        }}
+      }}
+
+      // Populate config fields
+      if (currentState.selected_game_id) {{
+        const gSelect = document.getElementById('config-game-select');
+        if (gSelect) gSelect.value = currentState.selected_game_id;
+        const badge = document.getElementById('badge-game-status');
+        if (badge) {{
+          badge.textContent = currentState.selected_game_id === 'custom' ? 'Personalizado' : 'Oficial';
+        }}
+      }}
+      const cidInput = document.getElementById('config-client-id');
+      if (cidInput && currentState.client_id && document.activeElement !== cidInput) {{
+        cidInput.value = currentState.client_id;
+      }}
+      const detInput = document.getElementById('config-details');
+      if (detInput && currentState.custom_details && document.activeElement !== detInput) {{
+        detInput.value = currentState.custom_details;
+      }}
+      const durSelect = document.getElementById('config-duration');
+      if (durSelect && currentState.match_duration_min) {{
+        durSelect.value = String(currentState.match_duration_min);
+      }}
+
+      // Subtitle
+      const sub = document.getElementById('main-subtitle');
+      if (sub && currentState.selected_game_id) {{
+        const p = PRESETS[currentState.selected_game_id];
+        sub.textContent = p ? p.name : 'League of Legends';
+      }}
 
       // Mode cards
       const isOfficial = currentState.mode === 'oficial';
@@ -928,7 +1307,7 @@ def generate_liquid_html(initial_state: dict) -> str:
 
       // Settings panel expansion
       const panel = document.getElementById('panel-settings');
-      panel.classList.toggle('open', !isOfficial || !!currentState.settings_expanded);
+      panel.classList.toggle('open', !isOfficial);
 
       // Champion
       if (currentState.champion) {{

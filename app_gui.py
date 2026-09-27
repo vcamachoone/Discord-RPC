@@ -90,6 +90,7 @@ class LoLAppController(AppKit.NSObject):
             on_state_change=self.on_rpc_state_change,
             on_match_reset=self.on_match_reset,
             auto_start=auto_start,
+            load_config=True,
         )
 
         # 3. Initialize Popover UI Controller

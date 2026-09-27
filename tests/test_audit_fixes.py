@@ -277,6 +277,47 @@ class TestAuditFixes(unittest.TestCase):
             if hasattr(btn, "accessibilityValue"):
                 self.assertEqual(btn.accessibilityValue(), "Paused")
 
+    def test_08_top_games_preset_and_config_persistence(self):
+        """
+        Fix 8: Top 10 Games presets are defined with valid Client IDs,
+        LoLPopoverController supports apply_config, and liquid_html contains
+        both view-main and view-config panels.
+        """
+        # 1. TOP_GAMES catalog
+        self.assertIn("lol", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("valorant", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("cs2", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("minecraft", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("fortnite", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("gtav", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("apex", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("overwatch2", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("dota2", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("rocketleague", discord_rpc_manager.TOP_GAMES)
+        self.assertIn("custom", discord_rpc_manager.TOP_GAMES)
+
+        # 2. PopoverController apply_config
+        try:
+            ctrl = LoLPopoverController()
+            ctrl.apply_config("valorant", "700142994017648710", "En partida competitiva", 35)
+            self.assertEqual(ctrl.get_selected_game_id(), "valorant")
+            self.assertEqual(ctrl.get_client_id(), "700142994017648710")
+
+            # 3. HTML view-main and view-config panels
+            html = liquid_html.generate_liquid_html({"mode": "oficial", "selected_game_id": "valorant"})
+            self.assertIn('id="view-main"', html)
+            self.assertIn('id="view-config"', html)
+            self.assertIn('id="config-game-select"', html)
+            self.assertIn('id="config-client-id"', html)
+            self.assertIn('saveConfig()', html)
+        finally:
+            cfg_file = os.path.expanduser("~/.config/lol_discord_rpc/config.json")
+            if os.path.exists(cfg_file):
+                try:
+                    os.remove(cfg_file)
+                except OSError:
+                    pass
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

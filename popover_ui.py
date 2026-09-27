@@ -85,6 +85,19 @@ except ImportError:
     def get_rank_crest_url(t: str) -> str:
         return ""
 
+try:
+    from discord_rpc_manager import (
+        DEFAULT_CLIENT_ID,
+        TOP_GAMES,
+        load_user_config,
+        save_user_config,
+    )
+except ImportError:
+    DEFAULT_CLIENT_ID = "1402418696126992445"
+    TOP_GAMES = {}
+    load_user_config = lambda: {}
+    save_user_config = lambda cfg: None
+
 
 class FlippedVisualEffectView(AppKit.NSVisualEffectView):
     """
@@ -137,6 +150,15 @@ class LoLWebBridge(NSObject):
             self._controller.handle_action_button_click()
         elif action == "toggle_settings":
             self._controller.toggle_settings_panel()
+        elif action == "close_settings":
+            self._controller.close_settings_panel()
+        elif action == "save_config":
+            self._controller.apply_config(
+                game_id=body.get("game_id", "lol"),
+                client_id=body.get("client_id", ""),
+                details=body.get("details", ""),
+                duration_min=body.get("duration_min", 25),
+            )
         elif action == "change_champion":
             self._controller.set_selected_champion(body.get("name", ""))
         elif action == "change_rank":
@@ -172,20 +194,27 @@ class LoLPopoverController(NSObject):
         self._initialized = True
 
         # State attributes
+        saved = load_user_config()
         self._is_shown: bool = False
-        self._current_mode: str = "oficial"  # "oficial" or "detallado"
+        self._current_mode: str = saved.get("mode", "oficial")  # "oficial" or "detallado"
         self._settings_expanded: bool = False
-        self._autoreset_state: bool = True
+        self._autoreset_state: bool = saved.get("autoreset", True)
         self._autorun_state: bool = self.check_autorun()
         self._presence_active: bool = True
         self._connection_state: str = "disconnected"
 
+        # Game preset & Client ID configuration
+        self._selected_game_id: str = saved.get("game_id", "lol")
+        self._client_id: str = saved.get("client_id", DEFAULT_CLIENT_ID)
+        self._custom_details: str = saved.get("details", "En partida")
+        self._match_duration_min: int = int(saved.get("match_duration_min", 25))
+
         # LoL Settings State
-        self._champion: str = "Malzahar"
-        self._rank: str = "Oro"
-        self._division: str = "II"
+        self._champion: str = saved.get("champion", "Malzahar")
+        self._rank: str = saved.get("rank", "Oro")
+        self._division: str = saved.get("division", "II")
         self._division_enabled: bool = not is_apex_tier(self._rank)
-        self._game_mode: str = "Grieta del Invocador (Clasificatoria Solo/Duo)"
+        self._game_mode: str = saved.get("game_mode", "Grieta del Invocador (Clasificatoria Solo/Duo)")
 
         # Resolvers and actors
         self._champion_resolver = ChampionResolver() if ChampionResolver else None
@@ -771,6 +800,18 @@ class LoLPopoverController(NSObject):
                     champ_url = self._champion_resolver.get_square_icon_url(cid)
                 except Exception:
                     pass
+            top_games_list = [
+                {
+                    "id": g["id"],
+                    "name": g["name"],
+                    "client_id": g["client_id"],
+                    "icon": g.get("icon", ""),
+                    "default_details": g.get("default_details", ""),
+                    "default_state": g.get("default_state", ""),
+                    "duration_min": g.get("duration_min", 25),
+                }
+                for g in TOP_GAMES.values()
+            ]
             state = {
                 "mode": self._current_mode,
                 "autoreset": self._autoreset_state,
@@ -784,6 +825,11 @@ class LoLPopoverController(NSObject):
                 "game_mode": self._game_mode,
                 "champ_url": champ_url,
                 "is_apex": is_apex_tier(self._rank),
+                "selected_game_id": getattr(self, "_selected_game_id", "lol"),
+                "client_id": getattr(self, "_client_id", DEFAULT_CLIENT_ID),
+                "custom_details": getattr(self, "_custom_details", "En partida"),
+                "match_duration_min": getattr(self, "_match_duration_min", 25),
+                "top_games": top_games_list,
             }
             html = generate_liquid_html(state)
             self._web_view.loadHTMLString_baseURL_(html, None)
@@ -814,6 +860,18 @@ class LoLPopoverController(NSObject):
                 champ_url = self._champion_resolver.get_square_icon_url(cid)
             except Exception:
                 pass
+        top_games_list = [
+            {
+                "id": g["id"],
+                "name": g["name"],
+                "client_id": g["client_id"],
+                "icon": g.get("icon", ""),
+                "default_details": g.get("default_details", ""),
+                "default_state": g.get("default_state", ""),
+                "duration_min": g.get("duration_min", 25),
+            }
+            for g in TOP_GAMES.values()
+        ]
         state = {
             "mode": self._current_mode,
             "autoreset": self._autoreset_state,
@@ -827,6 +885,11 @@ class LoLPopoverController(NSObject):
             "game_mode": self._game_mode,
             "champ_url": champ_url,
             "is_apex": is_apex_tier(self._rank),
+            "selected_game_id": getattr(self, "_selected_game_id", "lol"),
+            "client_id": getattr(self, "_client_id", DEFAULT_CLIENT_ID),
+            "custom_details": getattr(self, "_custom_details", "En partida"),
+            "match_duration_min": getattr(self, "_match_duration_min", 25),
+            "top_games": top_games_list,
         }
         js = f"if (window.updateLiquidUI) {{ window.updateLiquidUI({json.dumps(state)}); }}"
         try:
@@ -836,12 +899,16 @@ class LoLPopoverController(NSObject):
 
     def _update_layout(self) -> None:
         """Adjusts popover frame size and action button position when settings expand/collapse."""
-        show_settings = self.is_settings_panel_visible()
-        total_height = 580 if show_settings else 360
+        if self._settings_expanded:
+            total_height = 495
+        elif self._current_mode == "detallado":
+            total_height = 580
+        else:
+            total_height = 360
         has_web = getattr(self, "_web_view", None) is not None
 
         if self._settings_container:
-            self._settings_container.setHidden_(True if has_web else not show_settings)
+            self._settings_container.setHidden_(True if has_web else not (self._current_mode == "detallado"))
 
         if self._content_view:
             self._content_view.setFrame_(
@@ -1465,6 +1532,78 @@ class LoLPopoverController(NSObject):
         """Toggles settings panel expansion state."""
         self._settings_expanded = not self._settings_expanded
         self._update_layout()
+
+    def close_settings_panel(self) -> None:
+        """Closes the configuration screen and returns to main view."""
+        self._settings_expanded = False
+        self._update_layout()
+
+    def apply_config(
+        self,
+        game_id: str,
+        client_id: str,
+        details: str,
+        duration_min: int = 25,
+    ) -> None:
+        """Applies new game preset & client ID, persists config, and notifies RPC manager."""
+        self._selected_game_id = str(game_id or "lol").strip()
+        cid = str(client_id or "").strip()
+        if not cid:
+            preset = TOP_GAMES.get(self._selected_game_id, {})
+            cid = preset.get("client_id", DEFAULT_CLIENT_ID) or DEFAULT_CLIENT_ID
+        self._client_id = cid
+        self._custom_details = str(details or "").strip() or "En partida"
+        try:
+            self._match_duration_min = int(duration_min)
+        except Exception:
+            self._match_duration_min = 25
+
+        # Persist user config
+        cfg = {
+            "game_id": self._selected_game_id,
+            "client_id": self._client_id,
+            "details": self._custom_details,
+            "match_duration_min": self._match_duration_min,
+            "match_duration_sec": self._match_duration_min * 60,
+            "autoreset": self._autoreset_state,
+            "autorun": self._autorun_state,
+            "mode": self._current_mode,
+            "champion": self._champion,
+            "rank": self._rank,
+            "division": self._division,
+            "game_mode": self._game_mode,
+        }
+        save_user_config(cfg)
+
+        # Notify RPC Manager
+        if self._rpc_manager:
+            try:
+                preset = TOP_GAMES.get(self._selected_game_id, {})
+                g_name = preset.get("name", "Juego")
+                g_icon = preset.get("icon", "")
+                if hasattr(self._rpc_manager, "set_game_preset"):
+                    self._rpc_manager.set_game_preset(
+                        game_id=self._selected_game_id,
+                        client_id=self._client_id,
+                        game_name=g_name,
+                        game_icon=g_icon,
+                        details=self._custom_details,
+                        duration_sec=self._match_duration_min * 60,
+                    )
+                elif hasattr(self._rpc_manager, "set_client_id"):
+                    self._rpc_manager.set_client_id(self._client_id)
+            except Exception:
+                pass
+
+        self._sync_to_web()
+
+    def get_selected_game_id(self) -> str:
+        """Returns currently selected game preset ID."""
+        return getattr(self, "_selected_game_id", "lol")
+
+    def get_client_id(self) -> str:
+        """Returns active Discord Client ID."""
+        return getattr(self, "_client_id", DEFAULT_CLIENT_ID)
 
     def get_champion_field(self) -> Optional[AppKit.NSTextField]:
         """Returns champion input text field."""

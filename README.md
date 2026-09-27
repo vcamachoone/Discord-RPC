@@ -25,6 +25,7 @@ Aplicación nativa para la barra de menús de macOS (**Menubar Agent / `LSUIElem
   - [6. Rangos y Emblemas Clasificatorios](#6-rangos-y-emblemas-clasificatorios)
   - [7. Interruptores y Automatización](#7-interruptores-y-automatización)
   - [8. Pausar y Reanudar Presencia](#8-pausar-y-reanudar-presencia)
+  - [9. Selector de los 10 Juegos Más Jugados y Client ID (⚙️)](#9-selector-de-los-10-juegos-más-jugados-y-client-id-️)
 - [Arranque Automático con macOS](#-arranque-automático-con-macos)
 - [Arquitectura del Proyecto](#-arquitectura-del-proyecto)
 - [Suite de Pruebas Automatizadas](#-suite-de-pruebas-automatizadas)
@@ -196,8 +197,34 @@ En la sección intermedia de la ventana flotante dispones de dos interruptores i
 
 En la parte inferior de la ventana tienes el botón principal de control:
 
-- **⏹ DETENER EN DISCORD**: Pausa la presencia y retira la actividad de League of Legends de tu perfil en Discord.
+- **⏹ DETENER EN DISCORD**: Pausa la presencia y retira la actividad de tu perfil en Discord.
 - **▶ INICIAR PRESENCIA**: Vuelve a conectar con Discord y publica tu presencia al instante.
+
+---
+
+### 9. Selector de los 10 Juegos Más Jugados y Client ID (⚙️)
+
+Al hacer clic en el botón de engranaje (**⚙️**) en la esquina superior derecha, se abre la pantalla dedicada de **Configuración & Juegos**:
+
+1. **Top 10 Presets Oficiales**:
+   - Puedes cambiar de juego al instante seleccionándolo en el menú desplegable:
+     - 🏆 **League of Legends** (Riot Games)
+     - 🎯 **VALORANT** (Riot Games)
+     - 🔫 **Counter-Strike 2** (Valve)
+     - ⛏️ **Minecraft** (Mojang)
+     - 🪂 **Fortnite** (Epic Games)
+     - 🚗 **Grand Theft Auto V** (Rockstar Games)
+     - ⚡ **Apex Legends** (Respawn / EA)
+     - 🛡️ **Overwatch 2** (Blizzard Entertainment)
+     - ⚔️ **Dota 2** (Valve)
+     - 🚀 **Rocket League** (Psyonix)
+     - ✏️ **Personalizado (Custom)**: Para escribir un Client ID propio y nombre de juego libre.
+2. **Auto-rellenado Inteligente**:
+   - Al seleccionar cualquier juego, la aplicación auto-rellena automáticamente el **Discord Application Client ID oficial**, el icono del juego y la duración estimada.
+3. **Restauración con un solo clic**:
+   - Si modificas el Client ID y quieres volver al valor oficial de League of Legends o del juego elegido, haz clic en **"Restaurar Oficial"**.
+4. **Guardado en Caliente**:
+   - Pulsa **💾 GUARDAR Y RECONECTAR** para aplicar el cambio inmediatamente sin tener que cerrar ni reiniciar la aplicación.
 
 ---
 
