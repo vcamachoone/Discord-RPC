@@ -273,7 +273,7 @@ class LoLPopoverController(NSObject):
         # 2. Main Visual Effect View (Dark Aqua HUD)
         self._content_vc = AppKit.NSViewController.alloc().init()
         self._content_view = FlippedVisualEffectView.alloc().initWithFrame_(
-            AppKit.NSMakeRect(0, 0, 340, 380)
+            AppKit.NSMakeRect(0, 0, 340, 360)
         )
         self._content_view.setMaterial_(AppKit.NSVisualEffectMaterialHUDWindow)
         self._content_view.setBlendingMode_(
@@ -282,11 +282,14 @@ class LoLPopoverController(NSObject):
         self._content_view.setState_(AppKit.NSVisualEffectStateActive)
         self._content_view.setWantsLayer_(True)
         if self._content_view.layer():
-            self._content_view.layer().setCornerRadius_(14.0)
+            if HAS_WEBKIT:
+                self._content_view.layer().setCornerRadius_(0.0)
+            else:
+                self._content_view.layer().setCornerRadius_(14.0)
 
         self._content_vc.setView_(self._content_view)
         self._popover.setContentViewController_(self._content_vc)
-        self._popover.setContentSize_(AppKit.NSMakeSize(340, 380))
+        self._popover.setContentSize_(AppKit.NSMakeSize(340, 360))
 
         # 3. Header View (Discord Icon, Titles, Gear Button)
         self._build_header()
@@ -834,7 +837,7 @@ class LoLPopoverController(NSObject):
     def _update_layout(self) -> None:
         """Adjusts popover frame size and action button position when settings expand/collapse."""
         show_settings = self.is_settings_panel_visible()
-        total_height = 515 if show_settings else 360
+        total_height = 580 if show_settings else 360
         has_web = getattr(self, "_web_view", None) is not None
 
         if self._settings_container:

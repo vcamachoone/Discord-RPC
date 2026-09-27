@@ -156,51 +156,38 @@ def generate_liquid_html(initial_state: dict) -> str:
   html, body {{
     background: transparent;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
     width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
   }}
 
   /* Custom subtle dark scrollbar */
   ::-webkit-scrollbar {{
-    width: 6px;
-    height: 6px;
-  }}
-  ::-webkit-scrollbar-track {{
-    background: rgba(0, 0, 0, 0.2);
-  }}
-  ::-webkit-scrollbar-thumb {{
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-  }}
-  ::-webkit-scrollbar-thumb:hover {{
-    background: rgba(255, 255, 255, 0.35);
+    display: none;
   }}
 
   /* Main Popover Container */
   .liquid-container {{
     position: relative;
     width: 100%;
+    height: 100%;
     min-height: 100%;
-    padding: 14px 16px 16px;
+    box-sizing: border-box;
+    padding: 14px 16px 14px;
     background: var(--bg-glass);
     backdrop-filter: blur(50px) saturate(210%);
     -webkit-backdrop-filter: blur(50px) saturate(210%);
-    border-radius: 14px;
+    border-radius: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }}
 
-  /* Specular top-edge light reflection */
+  /* Specular top-edge light reflection disabled to avoid slicing under arrow */
   .liquid-container::before {{
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 12px;
-    right: 12px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.45) 50%, transparent 100%);
-    pointer-events: none;
+    display: none;
   }}
 
   /* Header */
@@ -420,7 +407,7 @@ def generate_liquid_html(initial_state: dict) -> str:
     color: #FFFFFF;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    margin-top: 2px;
+    margin-top: auto;
   }}
   .action-btn:hover {{
     background: rgba(255, 255, 255, 0.15);
