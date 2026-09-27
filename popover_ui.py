@@ -785,6 +785,18 @@ class LoLPopoverController(NSObject):
             html = generate_liquid_html(state)
             self._web_view.loadHTMLString_baseURL_(html, None)
             self._content_view.addSubview_(self._web_view)
+            self._hide_native_fallback_controls()
+        except Exception:
+            pass
+
+    def _hide_native_fallback_controls(self) -> None:
+        """Hides native Cocoa fallback subviews when WebKit Liquid Glass UI is active."""
+        if not getattr(self, "_web_view", None) or not self._content_view:
+            return
+        try:
+            for subview in list(self._content_view.subviews()):
+                if subview != self._web_view:
+                    subview.setHidden_(True)
         except Exception:
             pass
 
@@ -823,9 +835,10 @@ class LoLPopoverController(NSObject):
         """Adjusts popover frame size and action button position when settings expand/collapse."""
         show_settings = self.is_settings_panel_visible()
         total_height = 515 if show_settings else 360
+        has_web = getattr(self, "_web_view", None) is not None
 
         if self._settings_container:
-            self._settings_container.setHidden_(not show_settings)
+            self._settings_container.setHidden_(True if has_web else not show_settings)
 
         if self._content_view:
             self._content_view.setFrame_(
@@ -835,7 +848,7 @@ class LoLPopoverController(NSObject):
         if self._popover:
             self._popover.setContentSize_(AppKit.NSMakeSize(340, total_height))
 
-        if getattr(self, "_web_view", None) and self._content_view:
+        if has_web and self._content_view:
             self._web_view.setFrame_(self._content_view.bounds())
 
         # Position action button at the bottom of the container
@@ -844,6 +857,11 @@ class LoLPopoverController(NSObject):
             self._action_button.setFrame_(
                 AppKit.NSMakeRect(16, btn_y, 308, 38)
             )
+            if has_web:
+                self._action_button.setHidden_(True)
+
+        if has_web:
+            self._hide_native_fallback_controls()
 
         self._sync_to_web()
 
