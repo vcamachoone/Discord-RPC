@@ -659,7 +659,7 @@ def generate_liquid_html(initial_state: dict) -> str:
             <div class="champ-search-icon">
               {SEARCH_SVG}
             </div>
-            <input type="text" id="champ-input" class="field-input champ-search-input" placeholder="Buscar campeón (ej. Yasuo, Jinx, Ahri)..." autocomplete="off" onfocus="openChampDropdown()" oninput="filterChampions(this.value)">
+            <input type="text" id="champ-input" class="field-input champ-search-input" placeholder="Buscar campeón (ej. Yasuo, Jinx, Ahri)..." autocomplete="off" onfocus="openChampDropdown()" oninput="filterChampions(this.value)" onchange="sendAction('change_champion', {{ name: this.value.trim() }})">
             <!-- Autocomplete Dropdown -->
             <div id="champ-dropdown" class="champ-dropdown"></div>
           </div>
@@ -681,6 +681,7 @@ def generate_liquid_html(initial_state: dict) -> str:
             <option value="Maestro">Maestro</option>
             <option value="Gran Maestro">Gran Maestro</option>
             <option value="Challenger">Challenger</option>
+            <option value="Unranked">Unranked</option>
           </select>
         </div>
 
@@ -797,16 +798,29 @@ def generate_liquid_html(initial_state: dict) -> str:
       highlightedIndex = -1;
     }}
 
+    const ALIAS_MAP = {{
+      'asol': 'Aurelion Sol',
+      'j4': 'Jarvan IV',
+      'mf': 'Miss Fortune',
+      'tf': 'Twisted Fate',
+      'yi': 'Master Yi',
+      'bardo': 'Bard',
+      'nunu y willump': 'Nunu & Willump',
+      'mundo': 'Dr. Mundo'
+    }};
+
     function filterChampions(query) {{
+      highlightedIndex = -1;
       const q = (query || '').toLowerCase().trim();
       champDropdown.innerHTML = '';
+      const aliasTarget = ALIAS_MAP[q] ? ALIAS_MAP[q].toLowerCase() : '';
 
       const filtered = ALL_CHAMPIONS.filter(c => {{
         if (!q) return true;
         const nameClean = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
         const idClean = c.id.toLowerCase();
         const qClean = q.replace(/[^a-z0-9]/g, '');
-        return c.name.toLowerCase().includes(q) || nameClean.includes(qClean) || idClean.includes(qClean);
+        return c.name.toLowerCase().includes(q) || nameClean.includes(qClean) || idClean.includes(qClean) || (aliasTarget && c.name.toLowerCase().includes(aliasTarget));
       }});
 
       if (filtered.length === 0) {{

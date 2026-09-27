@@ -140,9 +140,9 @@ class LoLWebBridge(NSObject):
         elif action == "change_champion":
             self._controller.set_selected_champion(body.get("name", ""))
         elif action == "change_rank":
-            self._controller.set_selected_rank(body.get("rank", "Oro"))
+            self._controller.select_rank(body.get("rank", "Oro"))
         elif action == "change_division":
-            self._controller.set_selected_division(body.get("division", "II"))
+            self._controller.select_division(body.get("division", "II"))
         elif action == "change_game_mode":
             self._controller.set_game_mode_text(body.get("game_mode", ""))
 
@@ -185,7 +185,7 @@ class LoLPopoverController(NSObject):
         self._rank: str = "Oro"
         self._division: str = "II"
         self._division_enabled: bool = not is_apex_tier(self._rank)
-        self._game_mode: str = "Grieta del Invocador (Clasificatoria)"
+        self._game_mode: str = "Grieta del Invocador (Clasificatoria Solo/Duo)"
 
         # Resolvers and actors
         self._champion_resolver = ChampionResolver() if ChampionResolver else None
@@ -1177,6 +1177,8 @@ class LoLPopoverController(NSObject):
         <string>/usr/bin/open</string>
         <string>-a</string>
         <string>/Applications/League of Legends RPC.app</string>
+        <string>--args</string>
+        <string>--silent</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -1407,6 +1409,10 @@ class LoLPopoverController(NSObject):
     def is_division_selector_enabled(self) -> bool:
         """Returns True if division selector is enabled (False for Apex tiers)."""
         return bool(self._division_enabled)
+
+    # Alias methods for resilience across bridge and direct callers
+    set_selected_rank = select_rank
+    set_selected_division = select_division
 
     def get_game_mode_text(self) -> str:
         """Returns game mode description string."""

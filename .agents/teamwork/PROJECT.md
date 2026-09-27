@@ -56,6 +56,7 @@ Every feature identified during the survey phase is mapped to a specific milesto
 | F11 | Auto-restart Match Timer | Randomized 20-30 min timer resetting match presence and elapsed time | M3 | ORIGINAL_REQUEST §R1 |
 | F12 | App Bundle Packaging & Sync | Synchronization to /Applications/League of Legends RPC.app and launcher verification | M4 | ORIGINAL_REQUEST §R4 |
 | F13 | End-to-End Test Suite | Comprehensive 5-tier test suite verifying UI, concurrency, DDragon, and bundle | E2E Track | PROJECT Pattern |
+| F14 | Audit Defect Fixes & Hardening | LoLWebBridge dispatch fix, Unranked tier, community aliases, attribute injection defense, threading.Lock, Darwin socket teardown, silent boot | M6 | ORIGINAL_REQUEST Follow-up §R1-R4 |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
@@ -66,6 +67,7 @@ Every feature identified during the survey phase is mapped to a specific milesto
 | M3 | Concurrency Manager & LoL Engine | Champion resolver (`lol_champions.py`), rank formatter (`lol_ranks.py`), and thread-safe RPC manager (`discord_rpc_manager.py`) | none | DONE |
 | M4 | Application Integration & Bundle Sync | Master integration in `app_gui.py` and bundle synchronization to `/Applications/League of Legends RPC.app` | M1, M2, M3 | DONE |
 | M5 | Final E2E Test Pass & Coverage Hardening | 100% pass of E2E test suite (149 tests across Tiers 1-5), Gate APPROVE by 2 Reviewers, 2 Challengers, and CLEAN by Auditor | M4, E2E | DONE |
+| M6 | System Audit, Defect Discovery & Hardening | Full audit of Liquid Glass UI, Discord IPC concurrency with threading.Lock, macOS LaunchAgent silent boot, 239/239 tests passing, Gate APPROVE by 2 Reviewers, 2 Challengers, and CLEAN by Auditor | M5 | DONE |
 
 ## Interface Contracts
 

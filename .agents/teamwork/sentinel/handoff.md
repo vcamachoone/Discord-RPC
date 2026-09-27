@@ -1,32 +1,36 @@
-# Sentinel Handoff Report — Discord RPC League of Legends macOS Redesign
+# Handoff Report — Sentinel
 
 ## Observation
-The user requested a full audit and redesign of the League of Legends Discord RPC application for macOS, migrating from legacy textual menu items (`rumps`) to a modern native floating popover interface (`NSPopover`), dynamic status bar icons reflecting 3 operational states, an interactive settings/configuration view with Riot Data Dragon normalization and Apex rank suppression, thread-safe asynchronous concurrency, and installation/synchronization of the `/Applications/League of Legends RPC.app` bundle.
+The user requested a comprehensive end-to-end audit, defect discovery, and hardening for the League of Legends Discord RPC macOS application across:
+1. R1: Liquid Glass & Popover UI (173-champion searcher with Data Dragon avatars, canonical game modes, rank updates & Apex division suppression, UI controls).
+2. R2: Concurrency & Discord IPC resilience (threading.Lock protection, resilient auto-reconnect, no Cocoa runloop blocking or socket leak).
+3. R3: macOS system integration & LaunchAgent auto-start (NSStatusItem 3 states, silent LaunchAgent startup, zero Python Dock flicker, bundle parity).
+4. R4: Automated defect correction and 100% test pass rate across the full test suite.
+
+The Sentinel recorded the request to `ORIGINAL_REQUEST.md`, routed the task via General path to `teamwork_preview_orchestrator` (`orchestrator_2`), monitored execution via progress and liveness crons, and blocked completion until independent verification by `teamwork_preview_victory_auditor` (`victory_auditor_2`).
 
 ## Logic Chain
-1. **Routing**: Task was evaluated per the Routing Decision Table. With comprehensive multi-subsystem engineering requirements (UI/Cocoa, Data Dragon, threading, packaging), the request was routed to General (`teamwork_preview_orchestrator`).
-2. **Orchestration Execution**:
-   - Survey phase: Synthesized architectural requirements, PyObjC Cocoa constraints, and mockup visual specs (`123.png`).
-   - Test Track: Built a 5-tier test suite covering 149 canonical tests across features, boundaries, interactions, end-to-end scenarios, and adversarial cases.
-   - Milestone 1: Created `assets_gen.py` and `status_item.py` for rendering and dynamically switching among Normal, Active (blue dot), and Paused (dimmed) menubar icons.
-   - Milestone 3: Implemented `lol_champions.py` (normalizing all 173 champions and 9 Riot internal ID anomalies) and `lol_ranks.py` (Apex division suppression). Engineered `discord_rpc_manager.py` using an Actor-model worker thread and queues to ensure main-thread Cocoa UI isolation and socket fault tolerance.
-   - Milestone 2: Built `popover_ui.py` implementing Cocoa `NSPopover` with Dark Aqua HUD theme, mode cards, `NSSwitch` toggles, champion/rank selectors, and status toggle buttons.
-   - Milestone 4: Integrated entry point `app_gui.py` with `NSApplicationActivationPolicyAccessory`, and synchronized the application bundle `/Applications/League of Legends RPC.app` via `sync_bundle.py`.
-3. **Independent Victory Audit**:
-   - Spawned `teamwork_preview_victory_auditor` for a blocking 3-phase audit upon the orchestrator's victory claim.
-   - The auditor verified timeline provenance, confirmed zero mock bypasses or mock imports in production code, independently executed 200 total tests with 100% success rate, and verified byte-for-byte fidelity and XML validity of `/Applications/League of Legends RPC.app`.
-   - Verdict: **VICTORY CONFIRMED**.
-4. **Cleanup**: Both monitoring crons were cancelled and all subagents terminated cleanly.
+1. **Exploration**: 3 parallel Explorers audited the UI/Popover, IPC concurrency, and macOS system integration, uncovering specific edge cases (WebBridge rank method names, missing Unranked option, game mode default mismatch, slang search aliases, IPC attribute validation, Darwin socket close behavior, and silent LaunchAgent startup).
+2. **Remediation**: `worker_audit_1` implemented targeted fixes across `popover_ui.py`, `liquid_html.py`, `discord_rpc_manager.py`, `app_gui.py`, and `status_item.py`, and synced `/Applications/League of Legends RPC.app`.
+3. **Internal Swarm Gate**: The orchestrator dispatched 2 Reviewers, 2 Challengers, and 1 Forensic Auditor. All passed unanimously (including 60-thread concurrency stress tests, 25 rapid socket disconnections, and JavaScriptCore input fuzzing).
+4. **Independent Victory Audit**: Spawned `victory_auditor_2` with zero shared context from the implementation swarm. The auditor conducted:
+   - Phase A: Timeline forensics (PASS).
+   - Phase B: Integrity & anti-cheating audit (PASS — zero dummy stubs, zero test bypasses, genuine locks).
+   - Phase C: Independent test execution (PASS — 149/149 master runner tests, 239/239 total tests passing 100%).
+   - System Verifications: Concurrency protections, Liquid Glass DOM, 173-champion catalog with aliases, LaunchAgent plist validation, and bitwise bundle verification (5/5 PASS).
+5. **Verdict**: VICTORY CONFIRMED.
+6. **Cleanup**: Both crons killed and all subagents terminated cleanly.
 
 ## Caveats
-- Discord must be running locally for rich presence updates to establish a live connection to the local Discord IPC socket; when Discord is not running, the application gracefully handles disconnections and reconnects automatically when Discord launches.
-- Auto-run at login toggles the user's `LaunchAgents` plist entry (`com.lol.discordrpc.plist`).
+- Runtime Discord presence updates depend on Discord desktop client running locally; when Discord is closed or restarting, the manager gracefully logs status as "Esperando a Discord..." and reconnects automatically without throwing unhandled exceptions or blocking Cocoa.
+- LaunchAgent auto-start requires user login on macOS.
 
 ## Conclusion
-The Discord RPC League of Legends macOS redesign has been completely implemented, verified through multi-tier tests and adversarial challenges, independently audited with a VICTORY CONFIRMED verdict, and synchronized to `/Applications/League of Legends RPC.app`.
+All requirements (R1–R4) and acceptance criteria have been completely satisfied and independently verified. The application is fully hardened and production-ready in `/Applications/League of Legends RPC.app`.
 
 ## Verification Method
-- Canonical test execution: `./venv/bin/python tests/run_tests.py -v` (149 passed, 0 failed).
-- Unit test suites: `./venv/bin/python -m unittest tests/test_milestone1.py tests/test_milestone4.py` (31 passed, 0 failed).
-- Adversarial test suites: `./venv/bin/python -m unittest tests/test_adversarial_challenger2.py` (20 passed, 0 failed).
-- Bundle verification: Confirmed valid XML in `/Applications/League of Legends RPC.app/Contents/Info.plist`, executable bit on `/Applications/League of Legends RPC.app/Contents/MacOS/League of Legends RPC`, and identical byte parity on all runtime scripts and PNG assets.
+- Independent Master E2E Runner: `/Users/victormanuel/discord-rpc/venv/bin/python tests/run_tests.py` -> 149/149 PASS (100%).
+- Full Test Suite: 239/239 PASS across all unit, boundary, interaction, scenario, stress, and audit fix suites.
+- Bundle Verification: `/Users/victormanuel/discord-rpc/venv/bin/python sync_bundle.py --verify-only` -> 5/5 checks PASS.
+- LaunchAgent Lint: `plutil -lint ~/Library/LaunchAgents/com.victormanuel.lolrpc.plist` -> OK.
+- Independent Audit Verdict: VICTORY CONFIRMED.

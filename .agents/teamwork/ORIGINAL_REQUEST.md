@@ -59,3 +59,56 @@ En el modo detallado o mediante el botón de configuración (engranaje), permiti
 - [ ] El cambio de modos y la interacción con la UI no congelan la interfaz ni lanzan excepciones de socket o rate-limit en `pypresence`.
 - [ ] En Modo Detallado, el nombre de cualquier campeón introducido se resuelve hacia una imagen válida en Data Dragon sin fallar por minúsculas o caracteres especiales.
 - [ ] La aplicación se puede compilar/instalar y ejecutar sin errores en `/Applications/League of Legends RPC.app`.
+
+## Follow-up — 2026-09-27T16:39:44Z
+
+Comprehensive end-to-end audit and defect discovery for the League of Legends Discord RPC macOS application, verifying that the entire system functions flawlessly, identifying any edge-case failures or regressions, and hardening recent additions (173-champion avatar searcher, canonical game modes, macOS LaunchAgent auto-start, and Liquid Glass popover).
+
+Working directory: /Users/victormanuel/discord-rpc
+Integrity mode: development
+
+## Requirements
+
+### R1. Auditoría Funcional y de Interfaz (Liquid Glass & Popover UI)
+Auditar minuciosamente la interfaz flotante `NSPopover` en Cocoa con overlay `WebKit`:
+- Validar el funcionamiento del nuevo buscador interactivo de campeones con fotos/avatares en tiempo real (173 campeones), navegación por teclado y selección fluida.
+- Validar el selector de modos de juego canónicos de LoL y el modo de texto personalizado.
+- Validar la actualización de rangos, crestas y supresión automática de divisiones en rangos Apex (Master, Grandmaster, Challenger).
+- Validar la respuesta visual y funcional de los switches (autoreset, autorun) y el botón principal de presencia.
+
+### R2. Auditoría de Concurrencia y Resiliencia de Discord IPC
+Auditar la estabilidad del Actor `DiscordRPCManager`:
+- Verificar la protección contra carreras de hilos (`threading.Lock`) durante cambios rápidos de estado o interacción agresiva.
+- Probar la reconexión resiliente cuando Discord se cierra y se vuelve a abrir.
+- Comprobar que no se produzcan bloqueos en el hilo principal (`AppKit` runloop) ni excepciones de socket no controladas.
+
+### R3. Auditoría de Integración con macOS y Arranque Automático
+- Verificar que el icono de la barra de menús (`NSStatusItem`) permanezca visible y accesible (junto al Wi-Fi) con sus 3 estados gráficos.
+- Verificar que el agente de inicio `~/Library/LaunchAgents/com.victormanuel.lolrpc.plist` y los Ítems de Inicio de macOS inicien el bundle silenciosamente al encender el Mac.
+- Asegurar que al abrir la app o ejecutar el lanzador no haya parpadeo de iconos de Python en el Dock y que la ventana flotante se presente correctamente al frente.
+
+### R4. Corrección de Defectos y Verificación Automatizada
+- Ejecutar la suite completa de pruebas end-to-end (`tests/run_tests.py`) abarcando Tiers 1 al 5.
+- Si se detecta cualquier falla, regresión o cuello de botella durante la auditoría, implementar la solución inmediatamente y verificar que todas las pruebas pasen al 100%.
+
+## Verification Resources
+- Test Runner: `/Users/victormanuel/discord-rpc/venv/bin/python tests/run_tests.py`
+- Test Suites: `tests/test_tier1_features.py`, `tests/test_tier2_boundaries.py`, `tests/test_tier3_interactions.py`, `tests/test_tier4_scenarios.py`, `tests/test_adversarial_stress.py`
+- Reference Mockup: `/Users/victormanuel/Desktop/123.png` (and artifact `design_mockup.png`)
+- Application Bundle: `/Applications/League of Legends RPC.app`
+
+## Acceptance Criteria
+
+### Estabilidad y Concurrencia
+- [ ] Cero bloqueos, cuelgues o congelamientos de la interfaz ante eventos rápidos de red o clics repetitivos.
+- [ ] La presencia en Discord refleja exactamente el modo, campeón, rango y modo de juego seleccionados sin retrasos ni excepciones de socket.
+
+### Experiencia de Usuario y Liquid Glass
+- [ ] El buscador de campeones filtra instantáneamente entre los 173 campeones mostrando su foto oficial de Riot CDN y permitiendo selección con ratón y teclado.
+- [ ] El selector de modos de juego actualiza la actividad en Discord y permite modo personalizado si se requiere.
+- [ ] La ventana flotante `NSPopover` se despliega anclada al icono de Discord en la barra superior con efecto Liquid Glass nítido.
+
+### Integración con el Sistema y Suite de Pruebas
+- [ ] El bundle `/Applications/League of Legends RPC.app` arranca silenciosamente sin mostrar icono temporal de Python en el Dock.
+- [ ] El LaunchAgent inicia la aplicación de forma persistente tras el inicio de sesión del usuario.
+- [ ] El 100% de las pruebas automatizadas (149/149) pasan de forma limpia e independiente.

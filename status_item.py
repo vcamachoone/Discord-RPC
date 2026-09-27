@@ -94,6 +94,10 @@ class LoLStatusItemController(NSObject):
             self._button.setTarget_(self)
             self._button.setAction_(b"statusItemButtonClicked:")
             self._button.setToolTip_("Discord RPC - League of Legends")
+            if hasattr(self._button, "setAccessibilityTitle_"):
+                self._button.setAccessibilityTitle_("Discord RPC League of Legends")
+            if hasattr(self._button, "setAccessibilityLabel_"):
+                self._button.setAccessibilityLabel_("Discord RPC League of Legends")
 
     def _load_icons(self) -> None:
         """
@@ -177,6 +181,9 @@ class LoLStatusItemController(NSObject):
 
             if self._button is not None:
                 self._button.setImage_(image)
+
+        if self._button is not None and hasattr(self._button, "setAccessibilityValue_"):
+            self._button.setAccessibilityValue_(state_norm.capitalize())
 
     def get_current_state(self) -> str:
         """Returns the current state ('normal', 'active', or 'paused')."""

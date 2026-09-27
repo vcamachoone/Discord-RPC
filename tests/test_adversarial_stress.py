@@ -470,9 +470,9 @@ class TestAdversarialRPCStress(unittest.TestCase):
 
     def test_adv_09_private_attribute_injection_probe(self):
         """
-        ADV.09: Adversarially tests attribute pollution via update_presence_config.
-        Demonstrates that passing private attributes (e.g. _running=False) alters internal
-        state due to unvalidated hasattr() checks.
+        ADV.09: Adversarially tests attribute pollution prevention via update_presence_config.
+        Verifies that passing private attributes (e.g. _running=False) is rejected by
+        ALLOWED_CONFIG_KEYS and does not alter internal state.
         """
         shared_presence = FaultyPresence("injection_client")
         with patch("discord_rpc_manager.Presence", return_value=shared_presence):
@@ -482,18 +482,16 @@ class TestAdversarialRPCStress(unittest.TestCase):
             mgr._cmd_queue.put(("CONFIG_CHANGE", {"_running": False}))
             mgr._worker_thread.start()
 
-            # Wait for command to be processed
-            deadline = time.time() + 2.0
-            while mgr._worker_thread.is_alive() and time.time() < deadline:
-                time.sleep(0.05)
+            # Wait briefly for command to be processed
+            time.sleep(0.15)
 
-            # The worker thread died prematurely because _running was overwritten to False!
-            thread_died = not mgr._worker_thread.is_alive()
-            # This confirms the vulnerability: private attribute was overwritten by config change!
+            # The worker thread must stay ALIVE because _running was NOT overwritten!
             self.assertTrue(
-                thread_died,
-                "Expected worker thread to terminate prematurely demonstrating attribute pollution vulnerability",
+                mgr._worker_thread.is_alive(),
+                "Worker thread should remain alive as private attribute injection was rejected",
             )
+            self.assertTrue(mgr._running, "_running attribute must remain True")
+            mgr.shutdown()
 
     def test_adv_10_extreme_queue_burst_drain_10000_items(self):
         """

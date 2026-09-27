@@ -226,17 +226,19 @@ class LoLAppDelegate(AppKit.NSObject):
     def applicationDidFinishLaunching_(self, notification):
         logger.info("League of Legends Discord RPC launched successfully.")
         self.controller = LoLAppController()
-        # Auto-display popover and notification on launch
-        AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-            0.6, self, b"autoShowPopoverOnLaunch:", None, False
-        )
-        try:
-            subprocess.run([
-                "osascript", "-e",
-                'display notification "Haz clic en el icono de Discord en la barra superior para abrir el menú." with title "League of Legends RPC" subtitle "Iniciado en la barra de menús"'
-            ], check=False)
-        except Exception:
-            pass
+        # Auto-display popover and notification on launch (suppressed when launched silently)
+        is_silent = "--silent" in sys.argv or "--background" in sys.argv
+        if not is_silent:
+            AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+                0.6, self, b"autoShowPopoverOnLaunch:", None, False
+            )
+            try:
+                subprocess.Popen([
+                    "osascript", "-e",
+                    'display notification "Haz clic en el icono de Discord en la barra superior para abrir el menú." with title "League of Legends RPC" subtitle "Iniciado en la barra de menús"'
+                ])
+            except Exception:
+                pass
 
     @objc.IBAction
     def autoShowPopoverOnLaunch_(self, timer: Any) -> None:
