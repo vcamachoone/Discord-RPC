@@ -7,6 +7,7 @@ eliminates race conditions and socket corruption, dispatches status callbacks to
 PyObjCTools.AppHelper.callAfter, and provides resilient auto-reconnect and match reset timers.
 """
 
+import os
 import asyncio
 import queue
 import random
@@ -24,7 +25,7 @@ from pypresence import (
     PyPresenceException,
 )
 
-DEFAULT_CLIENT_ID = "1402418696126992445"
+DEFAULT_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "1402418696126992445")
 LOL_LOGO_URL = (
     "https://cdn.discordapp.com/app-icons/1402418696126992445/"
     "7c99428541032ac02ec6981d88b78fb7.png?size=512"

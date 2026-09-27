@@ -306,6 +306,26 @@ python sync_bundle.py
 ./stop.sh && ./start.sh
 ```
 
+### 5. ¿El repositorio contiene datos privados o credenciales de mi cuenta de Discord?
+**No, en absoluto.** La tecnología de Discord Rich Presence no utiliza correos, contraseñas ni tokens de usuario:
+- Se comunica directamente mediante el socket local del sistema operativo (`/tmp/discord-ipc-0` en macOS).
+- Cualquier persona que descargue este proyecto y lo abra en su Mac verá su presencia reflejada **automáticamente en su propia cuenta de Discord** abierta en ese equipo.
+- No hay ningún dato confidencial en el repositorio.
+
+### 6. ¿Cómo puede otra persona usar su propia aplicación de Discord? (Opcional)
+La app viene configurada con el Client ID oficial de League of Legends para funcionar **inmediatamente sin configuración adicional**.
+
+Si alguien desea crear su propia aplicación personalizada desde cero:
+1. Entra a [Discord Developer Portal](https://discord.com/developers/applications).
+2. Haz clic en **New Application**, asígnale el nombre que prefieras y sube los iconos en la pestaña **Rich Presence**.
+3. Copia el **Application ID (Client ID)**.
+4. En macOS, puedes definir tu ID antes de iniciar la app mediante la variable de entorno:
+   ```bash
+   export DISCORD_CLIENT_ID="tu_client_id_aqui"
+   open -a "/Applications/League of Legends RPC.app"
+   ```
+   O modificar directamente `DEFAULT_CLIENT_ID` en `discord_rpc_manager.py`.
+
 ---
 
 ## 📄 Licencia
