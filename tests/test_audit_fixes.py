@@ -318,6 +318,40 @@ class TestAuditFixes(unittest.TestCase):
                 except OSError:
                     pass
 
+    def test_09_dmg_builder_and_portable_launcher(self):
+        """
+        Fix 9: Validates DMG builder, universal launcher logic, background generator,
+        and generated installer disk image.
+        """
+        import build_dmg
+        import generate_dmg_background
+
+        # 1. Launcher and installer scripts validation
+        self.assertIn("PYTHONPATH", build_dmg.UNIVERSAL_LAUNCHER_SCRIPT)
+        self.assertIn("site-packages", build_dmg.UNIVERSAL_LAUNCHER_SCRIPT)
+        self.assertIn("/usr/bin/python3", build_dmg.UNIVERSAL_LAUNCHER_SCRIPT)
+        self.assertIn("com.apple.quarantine", build_dmg.QUICK_INSTALL_COMMAND)
+        self.assertIn("League of Legends RPC.app", build_dmg.QUICK_INSTALL_COMMAND)
+        self.assertIn("Top 10 Juegos", build_dmg.README_INSTRUCTIONS_TXT)
+
+        # 2. Check generated DMG installer image if built
+        dmg_path = os.path.join(PROJECT_ROOT, "dist", "League_of_Legends_RPC_Installer.dmg")
+        if os.path.isfile(dmg_path):
+            size = os.path.getsize(dmg_path)
+            self.assertGreater(size, 1_000_000, "DMG should be at least 1MB")
+            # Verify DMG with hdiutil
+            import subprocess
+            res = subprocess.run(["hdiutil", "verify", dmg_path], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"DMG verification failed: {res.stderr}")
+
+        # 3. Check launcher.sh is updated
+        launcher_sh_path = os.path.join(PROJECT_ROOT, "launcher.sh")
+        with open(launcher_sh_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("site-packages", content)
+        self.assertIn("PYTHON_BIN", content)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

@@ -309,6 +309,45 @@ FINAL TEST SUITE SUMMARY
 
 ---
 
+## 10. 📦 Instalador DMG (.dmg) y Distribución Portátil
+
+El proyecto incluye un generador automatizado de instaladores de disco para macOS (**`.dmg`**), diseñado para compartir la aplicación con otros usuarios o subirla como artefacto descargable en **GitHub Releases**.
+
+### 🌟 Ventajas del Instalador DMG:
+1. **100% Autónomo (Zero Setup):** Incluye las dependencias necesarias (`pypresence`, `PyObjC`, `Pillow`, `rumps`) integradas dentro del propio bundle en `Contents/Resources/site-packages`. Cualquier usuario con macOS puede arrastrar la app y usarla sin abrir la terminal ni instalar `pip`.
+2. **Lanzador Universal macOS:** Detecta automáticamente el runtime de Python 3 del sistema (`/usr/bin/python3`, Homebrew o virtualenv) sin dependencias fijas de rutas de usuario.
+3. **Fondo Retina Personalizado:** Ventana de instalación oscura con estética Discord & Hextech, guías visuales y flecha de arrastre directo a `/Applications`.
+4. **Script de 1-Clic (`⚡️ Instalación Rápida.command`):** Copia la aplicación a `/Applications`, elimina de forma automática la restricción de cuarentena de Apple Gatekeeper (`xattr -dr com.apple.quarantine`) y ofrece abrir la aplicación inmediatamente.
+
+### 🔨 Cómo Generar el Instalador DMG:
+En la terminal del proyecto, ejecuta:
+```bash
+python build_dmg.py
+```
+
+El script realizará automáticamente:
+1. Preparación del bundle `League of Legends RPC.app` con iconos, módulos y librerías portátiles.
+2. Renderizado de la gráfica de fondo Retina (`dist/dmg_background.png`).
+3. Creación del enlace simbólico a la carpeta de `/Applications`.
+4. Generación del comando de instalación rápida y guía en texto plano.
+5. Compresión optimizada con `hdiutil` (formato `UDZO`, nivel 9 de compresión).
+6. Verificación de integridad y cálculo de la suma criptográfica **SHA-256**.
+
+El archivo resultante se generará en:
+```text
+dist/League_of_Legends_RPC_Installer.dmg  (~10.8 MB)
+```
+
+### 🚀 Publicar en GitHub Releases:
+Para ofrecer la descarga directa a otros usuarios en tu repositorio de GitHub:
+1. Ve a tu repositorio: `https://github.com/vcamachoone/Discord-RPC/releases`.
+2. Haz clic en **Draft a new release** (Crear nueva versión).
+3. Asigna una etiqueta de versión (ejemplo: `v1.0.0`) y un título (ejemplo: *League of Legends RPC v1.0.0 - macOS Installer*).
+4. Arrastra el archivo `dist/League_of_Legends_RPC_Installer.dmg` al recuadro de adjuntos (**Attach binaries by dropping them here**).
+5. Haz clic en **Publish release**. ¡Cualquier persona podrá descargar el instalador DMG con un solo clic!
+
+---
+
 ## ❓ Resolución de Problemas Frecuentes (FAQ)
 
 ### 1. ¿Qué pasa si abro la app antes que Discord?

@@ -229,8 +229,13 @@ def sync_app_bundle(
             dst_asset = os.path.join(resources_dir, asset)
             shutil.copy2(src_asset, dst_asset)
 
-    # 5. Fix executable permissions on launcher
-    if os.path.isfile(launcher_path):
+    # 5. Copy launcher script and fix executable permissions
+    launcher_src = os.path.join(src_dir, "launcher.sh")
+    if os.path.isfile(launcher_src):
+        shutil.copy2(launcher_src, launcher_path)
+        os.chmod(launcher_path, 0o755)
+        logger.info("Synchronized universal launcher (0o755): %s -> %s", launcher_src, launcher_path)
+    elif os.path.isfile(launcher_path):
         current_mode = os.stat(launcher_path).st_mode
         desired_mode = current_mode | 0o755
         os.chmod(launcher_path, desired_mode)
