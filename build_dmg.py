@@ -21,7 +21,7 @@ import hashlib
 import plistlib
 import subprocess
 import argparse
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 SOURCE_ROOT = os.path.dirname(os.path.abspath(__file__))
 DIST_DIR = os.path.join(SOURCE_ROOT, "dist")
@@ -63,16 +63,20 @@ fi
 
 # 2. Locate Python 3 Runtime
 PYTHON_BIN=""
-if [ -x "/usr/bin/python3" ]; then
-    PYTHON_BIN="/usr/bin/python3"
-elif command -v python3 >/dev/null 2>&1; then
-    PYTHON_BIN="$(command -v python3)"
+if [ -n "$HOME" ] && [ -x "$HOME/discord-rpc/venv/bin/python" ]; then
+    PYTHON_BIN="$HOME/discord-rpc/venv/bin/python"
 elif [ -x "/opt/homebrew/bin/python3" ]; then
     PYTHON_BIN="/opt/homebrew/bin/python3"
 elif [ -x "/usr/local/bin/python3" ]; then
     PYTHON_BIN="/usr/local/bin/python3"
-elif [ -x "/Users/victormanuel/discord-rpc/venv/bin/python3" ]; then
-    PYTHON_BIN="/Users/victormanuel/discord-rpc/venv/bin/python3"
+elif [ -x "$DIR/../../venv/bin/python3" ]; then
+    PYTHON_BIN="$DIR/../../venv/bin/python3"
+elif command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v python3)"
+elif [ -x "/usr/bin/python3" ]; then
+    PYTHON_BIN="/usr/bin/python3"
+elif [ -x "/Library/Developer/CommandLineTools/usr/bin/python3" ]; then
+    PYTHON_BIN="/Library/Developer/CommandLineTools/usr/bin/python3"
 fi
 
 if [ -z "$PYTHON_BIN" ]; then
@@ -81,7 +85,7 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 export TK_SILENCE_DEPRECATION=1
-exec "$PYTHON_BIN" "$RESOURCES/app_gui.py" "$@"
+"$PYTHON_BIN" "$RESOURCES/app_gui.py" "$@"
 """
 
 QUICK_INSTALL_COMMAND = """#!/bin/bash
@@ -198,7 +202,43 @@ def compute_sha256(file_path: str) -> str:
     return h.hexdigest()
 
 
-def stage_application_bundle(dest_app_path: str, bundle_deps: bool = True) -> bool:
+def locate_site_packages() -> Optional[str]:
+    """
+    Dynamically locates the site-packages directory for the active Python environment.
+    Uses sysconfig, site, and virtualenv discovery fallbacks.
+    """
+    import sysconfig
+    for key in ("purelib", "platlib"):
+        try:
+            path = sysconfig.get_path(key)
+            if path and os.path.isdir(path) and "site-packages" in path:
+                return path
+        except Exception:
+            pass
+
+    try:
+        import site
+        for path in site.getsitepackages():
+            if os.path.isdir(path) and "site-packages" in path:
+                return path
+    except Exception:
+        pass
+
+    for folder in ("venv", ".venv", "env"):
+        lib_root = os.path.join(SOURCE_ROOT, folder, "lib")
+        if os.path.isdir(lib_root):
+            for entry in sorted(os.listdir(lib_root), reverse=True):
+                candidate = os.path.join(lib_root, entry, "site-packages")
+                if os.path.isdir(candidate):
+                    return candidate
+    return None
+
+
+def stage_application_bundle(
+    dest_app_path: str,
+    bundle_deps: bool = True,
+    version: Optional[str] = None,
+) -> bool:
     """
     Constructs a clean, self-contained macOS Application bundle at dest_app_path.
     """
@@ -212,23 +252,32 @@ def stage_application_bundle(dest_app_path: str, bundle_deps: bool = True) -> bo
     os.makedirs(macos_dir, exist_ok=True)
     os.makedirs(resources_dir, exist_ok=True)
 
+    app_version = (
+        version
+        or os.environ.get("RELEASE_VERSION")
+        or os.environ.get("GITHUB_REF_NAME", "").lstrip("v")
+        or "1.0.0"
+    )
+    if not app_version:
+        app_version = "1.0.0"
+
     # 1. Info.plist
     plist_path = os.path.join(contents_dir, "Info.plist")
     plist_data = {
         "CFBundleExecutable": "League of Legends RPC",
         "CFBundleIconFile": "AppIcon",
         "CFBundleIdentifier": "com.victormanuel.lolrpc",
-        "CFBundleName": "League of Legends RPC",
-        "CFBundleDisplayName": "League of Legends",
+        "CFBundleName": "Discord RPC",
+        "CFBundleDisplayName": "Discord RPC",
         "CFBundlePackageType": "APPL",
-        "CFBundleShortVersionString": "1.0.0",
-        "CFBundleVersion": "1.0.0",
+        "CFBundleShortVersionString": app_version,
+        "CFBundleVersion": app_version,
         "NSHighResolutionCapable": True,
         "LSUIElement": True,
     }
     with open(plist_path, "wb") as f:
         plistlib.dump(plist_data, f)
-    print("  ✓ Created Contents/Info.plist (LSUIElement=True)")
+    print(f"  ✓ Created Contents/Info.plist (version={app_version}, LSUIElement=True)")
 
     # 2. Universal Launcher
     launcher_path = os.path.join(macos_dir, "League of Legends RPC")
@@ -266,10 +315,11 @@ def stage_application_bundle(dest_app_path: str, bundle_deps: bool = True) -> bo
 
     # 6. Bundle Pruned Site-Packages
     if bundle_deps:
-        venv_sp = os.path.join(SOURCE_ROOT, "venv", "lib", "python3.9", "site-packages")
-        if not os.path.isdir(venv_sp):
-            print("  ⚠️ Warning: Virtual environment site-packages not found, skipping bundled libs.")
+        sp_source = locate_site_packages()
+        if not sp_source or not os.path.isdir(sp_source):
+            print("  ⚠️ Warning: site-packages directory not found, skipping bundled libs.")
         else:
+            print(f"  ✓ Found site-packages at: {sp_source}")
             dst_sp = os.path.join(resources_dir, "site-packages")
             if os.path.exists(dst_sp):
                 shutil.rmtree(dst_sp)
@@ -277,10 +327,10 @@ def stage_application_bundle(dest_app_path: str, bundle_deps: bool = True) -> bo
 
             ignored_prefixes = ("pip", "setuptools", "pkg_resources", "__pycache__", "_distutils")
             copied_count = 0
-            for item in os.listdir(venv_sp):
+            for item in os.listdir(sp_source):
                 if item.startswith(ignored_prefixes):
                     continue
-                s_item = os.path.join(venv_sp, item)
+                s_item = os.path.join(sp_source, item)
                 d_item = os.path.join(dst_sp, item)
                 if os.path.isdir(s_item):
                     shutil.copytree(s_item, d_item, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
@@ -310,7 +360,11 @@ def verify_staged_bundle(app_path: str) -> bool:
     return True
 
 
-def build_dmg(output_dmg: str = FINAL_DMG_PATH, volume_name: str = VOLUME_NAME) -> str:
+def build_dmg(
+    output_dmg: str = FINAL_DMG_PATH,
+    volume_name: str = VOLUME_NAME,
+    version: Optional[str] = None,
+) -> str:
     """
     Builds the complete macOS DMG installer image.
     """
@@ -326,7 +380,7 @@ def build_dmg(output_dmg: str = FINAL_DMG_PATH, volume_name: str = VOLUME_NAME) 
 
     # 2. Stage the application bundle
     staged_app = os.path.join(STAGING_DIR, "League of Legends RPC.app")
-    stage_application_bundle(staged_app, bundle_deps=True)
+    stage_application_bundle(staged_app, bundle_deps=True, version=version)
     if not verify_staged_bundle(staged_app):
         raise RuntimeError("Bundle verification failed!")
 
@@ -400,9 +454,12 @@ def build_dmg(output_dmg: str = FINAL_DMG_PATH, volume_name: str = VOLUME_NAME) 
     if os.path.exists(STAGING_DIR):
         shutil.rmtree(STAGING_DIR)
 
-    # 11. Calculate file stats
+    # 11. Calculate file stats and write SHA-256 checksum file
     file_size_mb = os.path.getsize(output_dmg) / (1024 * 1024)
     sha256_hash = compute_sha256(output_dmg)
+    sha256_path = f"{output_dmg}.sha256"
+    with open(sha256_path, "w", encoding="utf-8") as f:
+        f.write(f"{sha256_hash}  {os.path.basename(output_dmg)}\n")
 
     print("\n" + "=" * 70)
     print("   🎉 DMG INSTALLER BUILT SUCCESSFULLY!")
@@ -412,6 +469,7 @@ def build_dmg(output_dmg: str = FINAL_DMG_PATH, volume_name: str = VOLUME_NAME) 
     print(f"  File Size   : {file_size_mb:.2f} MB")
     print(f"  Volume Name : {volume_name}")
     print(f"  SHA-256     : {sha256_hash}")
+    print(f"  Checksum    : {sha256_path}")
     print("=" * 70 + "\n")
 
     return output_dmg
@@ -421,10 +479,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build macOS DMG Installer for League of Legends RPC.")
     parser.add_argument("--output", default=FINAL_DMG_PATH, help="Output DMG file path")
     parser.add_argument("--volname", default=VOLUME_NAME, help="Volume Name for the mounted DMG")
+    parser.add_argument("--version", default=None, help="Application version string (e.g. 1.0.0)")
     args = parser.parse_args()
 
     try:
-        build_dmg(output_dmg=args.output, volume_name=args.volname)
+        build_dmg(output_dmg=args.output, volume_name=args.volname, version=args.version)
         return 0
     except Exception as e:
         print(f"❌ Error building DMG: {e}", file=sys.stderr)

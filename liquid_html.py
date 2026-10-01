@@ -13,7 +13,7 @@ Produces pixel-perfect Figma-grade Liquid Glass UI matching design mockup 123.pn
 """
 
 import json
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from lol_champions import CHAMPIONS_DATA, FALLBACK_VERSION
@@ -400,6 +400,7 @@ def generate_liquid_html(initial_state: dict) -> str:
     justify-content: center;
     gap: 8px;
     cursor: pointer;
+    font-family: inherit;
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.6px;
@@ -408,6 +409,9 @@ def generate_liquid_html(initial_state: dict) -> str:
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     margin-top: auto;
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
   }}
   .action-btn:hover {{
     background: rgba(255, 255, 255, 0.15);
@@ -598,6 +602,55 @@ def generate_liquid_html(initial_state: dict) -> str:
   .view-panel.active {{
     display: flex;
   }}
+  .view-panel#view-config {{
+    overflow-y: auto;
+    max-height: 520px;
+    padding-right: 4px;
+  }}
+  #view-config::-webkit-scrollbar {{
+    display: block;
+    width: 4px;
+  }}
+  #view-config::-webkit-scrollbar-track {{
+    background: transparent;
+  }}
+  #view-config::-webkit-scrollbar-thumb {{
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+  }}
+  .buttons-config-group {{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 2px;
+  }}
+  .btn-config-card {{
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 9px;
+    padding: 9px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }}
+  .btn-config-card:hover {{
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.14);
+  }}
+  .btn-config-header {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #94A3B8;
+  }}
+  .btn-fields-grid {{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }}
 
   /* Dedicated Config Screen */
   .config-header {{
@@ -713,10 +766,146 @@ def generate_liquid_html(initial_state: dict) -> str:
     font-weight: 600;
     margin-left: 6px;
   }}
+
+  /* Quit Button Styles */
+  .quit-row {{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 10px;
+    padding-bottom: 2px;
+  }}
+  .quit-btn {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    color: #94A3B8;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }}
+  .quit-btn:hover {{
+    color: #EF4444;
+    background: rgba(239, 68, 68, 0.1);
+  }}
+  .quit-btn svg {{
+    transition: transform 0.2s ease;
+  }}
+  .quit-btn:hover svg {{
+    transform: scale(1.1);
+  }}
+  .quit-app-btn {{
+    width: 100%;
+    height: 36px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 9px;
+    color: #F87171;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+  }}
+  .quit-app-btn:hover {{
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.6);
+    color: #EF4444;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+  }}
+  .quit-app-btn:active {{
+    transform: translateY(1px);
+  }}
+  .action-btn *,
+  .quit-btn *,
+  .quit-app-btn *,
+  .mode-card *,
+  .ios-switch *,
+  .gear-btn *,
+  .back-btn *,
+  .save-config-btn * {{
+    pointer-events: none;
+  }}
+  .quit-btn, .quit-app-btn {{
+    -webkit-appearance: none;
+    appearance: none;
+  }}
+
+  /* Toast Notification Container & Items */
+  .toast-container {{
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 99999;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }}
+  .toast {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 500;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    pointer-events: auto;
+  }}
+  .toast.show {{
+    opacity: 1;
+    transform: translateY(0);
+  }}
+  .toast-error {{
+    background: rgba(45, 15, 15, 0.92);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #FCA5A5;
+  }}
+  .toast-warning {{
+    background: rgba(45, 30, 10, 0.92);
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    color: #FCD34D;
+  }}
+  .toast-info {{
+    background: rgba(15, 25, 45, 0.92);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    color: #93C5FD;
+  }}
+  .toast-icon {{
+    flex-shrink: 0;
+    font-size: 13px;
+  }}
+  .toast-msg {{
+    flex: 1;
+    word-break: break-word;
+    line-height: 1.35;
+  }}
 </style>
 </head>
 <body>
   <div class="liquid-container">
+    <!-- In-App Error & Notification Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
     <!-- VIEW 1: MAIN PRESENCE SCREEN -->
     <div id="view-main" class="view-panel active">
       <!-- Header -->
@@ -860,9 +1049,20 @@ def generate_liquid_html(initial_state: dict) -> str:
       </div>
 
       <!-- Action Button -->
-      <div class="action-btn" id="btn-action" onclick="sendAction('action_button')">
+      <button type="button" class="action-btn" id="btn-action" onclick="sendAction('action_button')">
         <span id="btn-icon">■</span>
         <span id="btn-text">DETENER EN DISCORD</span>
+      </button>
+
+      <!-- Quit Application Control -->
+      <div class="quit-row">
+        <button class="quit-btn" onclick="sendAction('quit_app')" title="Salir de Discord RPC">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+            <line x1="12" y1="2" x2="12" y2="12"></line>
+          </svg>
+          <span>Salir de la aplicación</span>
+        </button>
       </div>
     </div>
 
@@ -930,12 +1130,55 @@ def generate_liquid_html(initial_state: dict) -> str:
           </select>
         </div>
 
+        <!-- Interactive Discord Profile Buttons (Requirement R2) -->
+        <div class="field-row">
+          <div class="field-label-row">
+            <label class="field-label" style="margin-bottom: 0;">Botones Interactivos de Discord</label>
+            <span style="font-size: 9.5px; color: #94A3B8;">Máx. 2 botones (HTTPS)</span>
+          </div>
+          <div class="buttons-config-group">
+            <!-- Button 1 Card -->
+            <div class="btn-config-card">
+              <div class="btn-config-header">
+                <span>Botón 1</span>
+                <span style="font-size: 9px; color: #64748B;">Perfil / Stream / Web</span>
+              </div>
+              <div class="btn-fields-grid">
+                <input type="text" id="config-btn1-label" class="field-input" maxlength="32" placeholder="Texto del botón (ej. Ver OP.GG, Twitch)...">
+                <input type="text" id="config-btn1-url" class="field-input monospace-input" maxlength="512" placeholder="URL (ej. https://op.gg/summoners/...)">
+              </div>
+            </div>
+
+            <!-- Button 2 Card -->
+            <div class="btn-config-card">
+              <div class="btn-config-header">
+                <span>Botón 2</span>
+                <span style="font-size: 9px; color: #64748B;">Comunidad / Discord</span>
+              </div>
+              <div class="btn-fields-grid">
+                <input type="text" id="config-btn2-label" class="field-input" maxlength="32" placeholder="Texto del botón (ej. Servidor de Discord)...">
+                <input type="text" id="config-btn2-url" class="field-input monospace-input" maxlength="512" placeholder="URL (ej. https://discord.gg/...)">
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Feedback message -->
         <div id="config-feedback" class="config-feedback"></div>
 
         <!-- Save Button -->
         <button class="save-config-btn" onclick="saveConfig()">
           <span>💾 GUARDAR Y RECONECTAR</span>
+        </button>
+
+        <!-- Quit Application Danger Button -->
+        <button class="quit-app-btn" onclick="sendAction('quit_app')" title="Salir completamente de la aplicación">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Salir de la aplicación</span>
         </button>
       </div>
     </div>
@@ -946,11 +1189,53 @@ def generate_liquid_html(initial_state: dict) -> str:
     let currentState = {json.dumps(initial_state)};
     let highlightedIndex = -1;
 
+    function escapeHtml(str) {{
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }}
+
+    window.showToast = function(message, type, duration) {{
+      type = type || 'error';
+      duration = duration || 3500;
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-' + type;
+      const icon = type === 'error' ? '⚠️' : (type === 'warning' ? '⚡' : 'ℹ️');
+      toast.innerHTML = '<span class="toast-icon">' + icon + '</span><span class="toast-msg">' + escapeHtml(message) + '</span>';
+      container.appendChild(toast);
+      requestAnimationFrame(function() {{
+        toast.classList.add('show');
+      }});
+      setTimeout(function() {{
+        toast.classList.remove('show');
+        setTimeout(function() {{
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }}, 350);
+      }}, duration);
+    }};
+
+    window.addEventListener('error', function(e) {{
+      window.showToast((e && e.message) || "Error en interfaz gráfica", "error");
+    }});
+    window.addEventListener('unhandledrejection', function(e) {{
+      const reason = (e && e.reason && e.reason.message) || (e && e.reason) || "Error en operación asíncrona";
+      window.showToast(String(reason), "error");
+    }});
+
     function sendAction(action, data) {{
       try {{
+        console.log("sendAction dispatched:", action, data);
         const payload = Object.assign({{ action: action }}, data || {{}});
         if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lolrpc) {{
           window.webkit.messageHandlers.lolrpc.postMessage(payload);
+        }} else {{
+          console.warn("lolrpc handler missing on window.webkit for action:", action);
         }}
       }} catch (e) {{
         console.error("sendAction error:", e);
@@ -1212,11 +1497,36 @@ def generate_liquid_html(initial_state: dict) -> str:
       }}
     }}
 
+    function sanitizeBtn(labelRaw, urlRaw) {{
+      let label = (labelRaw || '').trim();
+      let url = (urlRaw || '').trim();
+      if (!label || !url) return null;
+      if (label.length > 32) label = label.substring(0, 32);
+      if (url.startsWith('http://')) {{
+        url = 'https://' + url.substring(7);
+      }} else if (!url.startsWith('https://')) {{
+        url = 'https://' + url;
+      }}
+      if (url.length > 512) url = url.substring(0, 512);
+      return {{ label: label, url: url }};
+    }}
+
     function saveConfig() {{
       const gameId = document.getElementById('config-game-select').value;
       const clientId = document.getElementById('config-client-id').value.trim();
       const details = document.getElementById('config-details').value.trim();
       const durationMin = parseInt(document.getElementById('config-duration').value, 10) || 25;
+
+      const b1Label = document.getElementById('config-btn1-label') ? document.getElementById('config-btn1-label').value : '';
+      const b1Url = document.getElementById('config-btn1-url') ? document.getElementById('config-btn1-url').value : '';
+      const b2Label = document.getElementById('config-btn2-label') ? document.getElementById('config-btn2-label').value : '';
+      const b2Url = document.getElementById('config-btn2-url') ? document.getElementById('config-btn2-url').value : '';
+
+      const buttons = [];
+      const btn1 = sanitizeBtn(b1Label, b1Url);
+      if (btn1) buttons.push(btn1);
+      const btn2 = sanitizeBtn(b2Label, b2Url);
+      if (btn2) buttons.push(btn2);
 
       const fb = document.getElementById('config-feedback');
       if (fb) fb.textContent = '✓ Guardando y reconectando a Discord...';
@@ -1225,7 +1535,8 @@ def generate_liquid_html(initial_state: dict) -> str:
         game_id: gameId,
         client_id: clientId,
         details: details,
-        duration_min: durationMin
+        duration_min: durationMin,
+        buttons: buttons
       }});
 
       setTimeout(() => {{
@@ -1273,6 +1584,29 @@ def generate_liquid_html(initial_state: dict) -> str:
       const durSelect = document.getElementById('config-duration');
       if (durSelect && currentState.match_duration_min) {{
         durSelect.value = String(currentState.match_duration_min);
+      }}
+
+      // Populate button inputs
+      if (Array.isArray(currentState.buttons)) {{
+        const b1 = currentState.buttons[0] || {{}};
+        const b2 = currentState.buttons[1] || {{}};
+        const b1LabelInput = document.getElementById('config-btn1-label');
+        const b1UrlInput = document.getElementById('config-btn1-url');
+        const b2LabelInput = document.getElementById('config-btn2-label');
+        const b2UrlInput = document.getElementById('config-btn2-url');
+
+        if (b1LabelInput && document.activeElement !== b1LabelInput) {{
+          b1LabelInput.value = b1.label || '';
+        }}
+        if (b1UrlInput && document.activeElement !== b1UrlInput) {{
+          b1UrlInput.value = b1.url || '';
+        }}
+        if (b2LabelInput && document.activeElement !== b2LabelInput) {{
+          b2LabelInput.value = b2.label || '';
+        }}
+        if (b2UrlInput && document.activeElement !== b2UrlInput) {{
+          b2UrlInput.value = b2.url || '';
+        }}
       }}
 
       // Subtitle
@@ -1365,3 +1699,11 @@ def generate_liquid_html(initial_state: dict) -> str:
 </body>
 </html>
 """
+
+
+# Compatibility alias
+def render_app_html(initial_state: Optional[Dict[str, Any]] = None) -> str:
+    """Renders application HTML with optional initial state."""
+    if initial_state is None:
+        initial_state = {}
+    return generate_liquid_html(initial_state)

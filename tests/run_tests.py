@@ -2,11 +2,13 @@
 """
 run_tests.py - Master E2E Test Runner for Discord RPC Redesign
 
-Executes all 4 tiers of the comprehensive test suite:
+Executes all 6 tiers of the comprehensive test suite:
   - Tier 1: Feature Coverage (60 tests)
   - Tier 2: Boundary & Corner Cases (60 tests)
   - Tier 3: Cross-Feature Interactions (14 tests)
   - Tier 4: Real-World Application Scenarios (5 tests)
+  - Tier 5: Adversarial Stress & Faults (10 tests)
+  - Tier 6: Production Acceptance & System Integration (24 tests)
 
 Exit code semantics:
   0: All executed tests passed cleanly (skips for pending milestones permitted)
@@ -116,8 +118,8 @@ def main():
     parser.add_argument(
         "--tier",
         type=int,
-        choices=[1, 2, 3, 4, 5],
-        help="Run only the specified tier (1, 2, 3, 4, or 5)",
+        choices=[1, 2, 3, 4, 5, 6],
+        help="Run only the specified tier (1, 2, 3, 4, 5, or 6)",
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Verbose test execution output"
@@ -132,6 +134,7 @@ def main():
         ("Tier 3: Cross-Feature Interactions", "tests.test_tier3_interactions"),
         ("Tier 4: Real-World Scenarios", "tests.test_tier4_scenarios"),
         ("Tier 5: Adversarial Stress & Faults", "tests.test_adversarial_stress"),
+        ("Tier 6: Production Acceptance & System Integration", "tests.test_tier6_production"),
     ]
 
     if args.tier:
@@ -159,18 +162,18 @@ def main():
         print_tier_summary(r)
 
     # Final Summary Table
-    print(f"{BOLD}{CYAN}══════════════════════════════════════════════════════════════════════════════{RESET}")
+    print(f"{BOLD}{CYAN}══════════════════════════════════════════════════════════════════════════════════════{RESET}")
     print(f"{BOLD}FINAL TEST SUITE SUMMARY{RESET}")
-    print(f"{BOLD}{CYAN}══════════════════════════════════════════════════════════════════════════════{RESET}")
-    print(f"  {'Tier Name':<38} {'Total':>7} {'Pass':>7} {'Skip':>7} {'Fail':>7} {'Time':>8}")
-    print(f"  {'-'*38} {'-'*7} {'-'*7} {'-'*7} {'-'*7} {'-'*8}")
+    print(f"{BOLD}{CYAN}══════════════════════════════════════════════════════════════════════════════════════{RESET}")
+    print(f"  {'Tier Name':<52} {'Total':>7} {'Pass':>7} {'Skip':>7} {'Fail':>7} {'Time':>8}")
+    print(f"  {'-'*52} {'-'*7} {'-'*7} {'-'*7} {'-'*7} {'-'*8}")
 
     for r in results:
-        print(f"  {r.name:<38} {r.total:>7} {r.passed:>7} {r.skipped:>7} {r.failed + r.errors:>7} {r.duration:>7.3f}s")
+        print(f"  {r.name:<52} {r.total:>7} {r.passed:>7} {r.skipped:>7} {r.failed + r.errors:>7} {r.duration:>7.3f}s")
 
-    print(f"  {'-'*38} {'-'*7} {'-'*7} {'-'*7} {'-'*7} {'-'*8}")
-    print(f"  {BOLD}{'TOTAL':<38} {total_tests:>7} {total_passed:>7} {total_skipped:>7} {total_failed + total_errors:>7} {total_duration:>7.3f}s{RESET}")
-    print(f"{BOLD}{CYAN}══════════════════════════════════════════════════════════════════════════════{RESET}\n")
+    print(f"  {'-'*52} {'-'*7} {'-'*7} {'-'*7} {'-'*7} {'-'*8}")
+    print(f"  {BOLD}{'TOTAL':<52} {total_tests:>7} {total_passed:>7} {total_skipped:>7} {total_failed + total_errors:>7} {total_duration:>7.3f}s{RESET}")
+    print(f"{BOLD}{CYAN}══════════════════════════════════════════════════════════════════════════════════════{RESET}\n")
 
     if total_failed == 0 and total_errors == 0:
         print(f"{BOLD}{GREEN}✓ ALL EXECUTED TESTS PASSED CLEANLY (100% SUCCESS){RESET}")

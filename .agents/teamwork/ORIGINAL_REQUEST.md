@@ -112,3 +112,65 @@ Auditar la estabilidad del Actor `DiscordRPCManager`:
 - [ ] El bundle `/Applications/League of Legends RPC.app` arranca silenciosamente sin mostrar icono temporal de Python en el Dock.
 - [ ] El LaunchAgent inicia la aplicación de forma persistente tras el inicio de sesión del usuario.
 - [ ] El 100% de las pruebas automatizadas (149/149) pasan de forma limpia e independiente.
+
+## Follow-up — 2026-09-29T23:10:58Z
+
+Transform the League of Legends Discord RPC macOS application from a functional development build into a polished, commercial-grade production product with complete lifecycle management, interactive Discord profile buttons, and automated CI/CD distribution.
+
+Working directory: /Users/victormanuel/discord-rpc
+Integrity mode: development
+
+## Requirements
+
+### R1. Native App Lifecycle, Menubar Controls & Hardened Auto-Start
+Implement complete user-facing lifecycle management for the macOS accessory application:
+- Add a visible and accessible "Salir de la aplicación" (Quit App) control within the popover interface and configuration view.
+- Support secondary right-click on the status bar icon (`NSStatusItem`) displaying a native Cocoa `NSMenu` with: Open Popover, Toggle Presence (Pause/Resume), Settings (⚙️), and Quit (Cmd+Q).
+- Implement a single-instance lock ensuring that launching the app when already running brings the existing popover to the front instead of spawning duplicate processes.
+- Harden macOS Auto-start (LaunchAgent & Login Items):
+  * Point LaunchAgent directly to the bundle binary (`/Applications/League of Legends RPC.app/Contents/MacOS/League of Legends RPC`) rather than indirect `/usr/bin/open`.
+  * Configure log destinations (`StandardOutPath` and `StandardErrorPath` in `~/Library/Logs/`).
+  * Display a brief system notification upon launch confirming active menubar presence.
+
+### R2. Discord Interactive Profile Buttons (Clickable Buttons)
+Expose support for up to two interactive clickable buttons in the Discord Rich Presence payload:
+- Allow users in `#view-config` to configure Button 1 and Button 2 (Label and URL, e.g. "Ver OP.GG", "Twitch Stream", "Servidor de Discord", "Mi Perfil").
+- Sanitize and validate button URLs (HTTPS enforcement, length limits).
+- Dispatch the button array cleanly to `pypresence` without crashing on empty or partial fields.
+
+### R3. Automated GitHub Actions CI/CD Release Pipeline
+Implement a production `.github/workflows/release.yml` GitHub Actions workflow:
+- Automatically trigger on release publication or semver git tags (`v*.*.*`).
+- Run on macOS runners (`macos-latest`).
+- Set up Python, install dependencies, run the complete 149-test suite across all 5 tiers.
+- Execute `build_dmg.py` to compile the standalone compressed `.dmg` installer.
+- Automatically attach the generated `.dmg` and its SHA-256 checksum to the GitHub Release.
+
+### R4. System Event Listeners (Discord Launch & Sleep/Wake Resilience)
+- Register Cocoa `NSWorkspaceDidLaunchApplicationNotification` to instantly connect when Discord starts up after system boot.
+- Register Cocoa `NSWorkspaceDidWakeNotification` to immediately re-establish Discord IPC connection when the Mac wakes from sleep.
+- Implement an in-app error boundary so WebKit or socket exceptions display a friendly toast rather than silently terminating.
+
+## Verification Resources
+- Test Runner: `/Users/victormanuel/discord-rpc/venv/bin/python tests/run_tests.py`
+- DMG Builder: `/Users/victormanuel/discord-rpc/venv/bin/python build_dmg.py`
+- Test Suites: `tests/test_tier1_features.py`, `tests/test_tier2_boundaries.py`, `tests/test_tier3_interactions.py`, `tests/test_tier4_scenarios.py`, `tests/test_adversarial_stress.py`, `tests/test_audit_fixes.py`
+- Bundle Path: `/Applications/League of Legends RPC.app`
+
+## Acceptance Criteria
+
+### Lifecycle, Auto-Start & Menubar Controls
+- [ ] Users can cleanly terminate the application from the UI without terminal or Activity Monitor.
+- [ ] Right-clicking the menubar icon displays a native Cocoa context menu with functional Open, Pause/Resume, and Quit options.
+- [ ] Launching a second instance focuses the running instance without starting duplicate background daemons.
+- [ ] Auto-start at system boot launches the bundle cleanly with a visual notification and logs to `~/Library/Logs/`.
+- [ ] Automatically detects when Discord opens via `NSWorkspaceDidLaunchApplicationNotification` and immediately connects to the active IPC socket.
+
+### Discord Rich Presence Features
+- [ ] Discord profile displays up to two custom clickable buttons redirecting to the configured URLs.
+- [ ] Configuration persists between sessions in `~/.config/lol_discord_rpc/config.json`.
+
+### CI/CD and Distribution
+- [ ] `.github/workflows/release.yml` passes syntax validation and successfully builds DMG artifacts on GitHub Actions.
+- [ ] 100% of automated tests pass across all tiers with zero regressions.
+

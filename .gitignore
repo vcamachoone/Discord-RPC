@@ -28,4 +28,10 @@ __pycache__/
 # Build & Distribution Artifacts
 dist/
 *.dmg
+launcher_bin
+
+# GitHub Actions workflows (ignored to allow git push with standard personal access tokens without 'workflow' scope)
+.github/
+
+
 

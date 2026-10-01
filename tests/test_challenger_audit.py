@@ -451,10 +451,10 @@ class TestChallengerMaliciousPayloads(unittest.TestCase):
 
     def test_challenger_06b_unhandled_non_dict_in_coalescer_defect_probe(self):
         """
-        EMPIRICAL PROBE FOR COALESCER CRASH BUG:
-        Demonstrates that if a non-dict payload (or None) is queued with 'CONFIG_CHANGE',
-        the coalescer in _worker_loop (line 271: payload.update(next_payload)) crashes
-        with AttributeError or TypeError because of missing isinstance checks.
+        REGRESSION TEST FOR COALESCER RESILIENCE:
+        Verifies that queuing non-dict payloads (or None) with 'CONFIG_CHANGE'
+        does NOT crash the worker thread, and subsequent valid configurations
+        are processed cleanly.
         """
         shared_presence = AdversarialFaultyPresence("probe_client")
         with patch("discord_rpc_manager.Presence", return_value=shared_presence):
@@ -465,15 +465,16 @@ class TestChallengerMaliciousPayloads(unittest.TestCase):
             mgr._cmd_queue.put(("CONFIG_CHANGE", {"champion_name": "Yasuo"}))
 
             mgr._worker_thread.start()
-            mgr._worker_thread.join(timeout=1.0)
+            # Allow brief moment for worker to process queued items
+            time.sleep(0.2)
 
-            # Worker thread crashed due to AttributeError: 'NoneType' object has no attribute 'update'
-            worker_died = not mgr._worker_thread.is_alive()
-            # We document that the worker died from this unhandled coalescer condition:
             self.assertTrue(
-                worker_died,
-                "Worker thread should reproduce crash when non-dict payload hits coalescer",
+                mgr._worker_thread.is_alive(),
+                "Worker thread should survive when non-dict payload hits coalescer",
             )
+            self.assertTrue(mgr.is_active is not None)
+            self.assertEqual(mgr.champion_name, "Yasuo")
+            mgr.shutdown()
 
 
 class TestChallengerSocketTeardownAndReconnect(unittest.TestCase):

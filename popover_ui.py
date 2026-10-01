@@ -24,9 +24,12 @@ Implements LoLPopoverController:
 import os
 import sys
 import json
+import logging
 import subprocess
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
+logger = logging.getLogger("popover_ui")
 
 import AppKit
 import objc
@@ -101,19 +104,27 @@ except ImportError:
 
 class FlippedVisualEffectView(AppKit.NSVisualEffectView):
     """
-    Subclass of NSVisualEffectView with flipped coordinates (origin at top-left).
+    Subclass of NSVisualEffectView with flipped coordinates (origin at top-left)
+    and immediate first-mouse click acceptance.
     """
 
     def isFlipped(self) -> bool:
         return True
 
+    def acceptsFirstMouse_(self, event) -> bool:
+        return True
+
 
 class FlippedView(AppKit.NSView):
     """
-    Subclass of NSView with flipped coordinates (origin at top-left).
+    Subclass of NSView with flipped coordinates (origin at top-left)
+    and immediate first-mouse click acceptance.
     """
 
     def isFlipped(self) -> bool:
+        return True
+
+    def acceptsFirstMouse_(self, event) -> bool:
         return True
 
 
@@ -124,6 +135,34 @@ class FlippedButton(AppKit.NSButton):
 
     def isFlipped(self) -> bool:
         return True
+
+    def acceptsFirstMouse_(self, event) -> bool:
+        return True
+
+
+if HAS_WEBKIT:
+    class LoLWebView(WebKit.WKWebView):
+        """
+        WKWebView subclass accepting first mouse clicks immediately in accessory/popover windows.
+        """
+
+        def acceptsFirstMouse_(self, event) -> bool:
+            return True
+else:
+    LoLWebView = None
+
+
+def _to_python_dict(obj: Any) -> Any:
+    """Recursively converts PyObjC NSDictionary / NSArray collections to native Python dicts / lists."""
+    if hasattr(obj, "items"):
+        return {str(k): _to_python_dict(v) for k, v in obj.items()}
+    elif hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes)):
+        return [_to_python_dict(x) for x in obj]
+    return obj
+
+
+# Global reference list to prevent GC of script message handlers
+_RETAINED_WEB_BRIDGES: List[Any] = []
 
 
 class LoLWebBridge(NSObject):
@@ -136,37 +175,57 @@ class LoLWebBridge(NSObject):
         return self
 
     def userContentController_didReceiveScriptMessage_(self, ucc, message):
-        body = message.body()
-        if not body or not self._controller:
+        if not message or not hasattr(message, "body"):
+            return
+        try:
+            raw_body = message.body()
+        except Exception:
+            return
+        if raw_body is None or not self._controller:
+            return
+        if not hasattr(raw_body, "get") and not hasattr(raw_body, "items") and not isinstance(raw_body, dict):
+            return
+        body = _to_python_dict(raw_body)
+        if not isinstance(body, dict):
             return
         action = body.get("action")
-        if action == "select_mode":
-            self._controller.select_mode(body.get("mode"))
-        elif action == "toggle_autoreset":
-            self._controller.set_autoreset_state(bool(body.get("value")))
-        elif action == "toggle_autorun":
-            self._controller.toggle_autorun(bool(body.get("value")))
-        elif action == "action_button":
+        logger.info("LoLWebBridge received action: %s (payload: %s)", action, body)
+        if hasattr(self._controller, "handle_web_action"):
+            self._controller.handle_web_action(action, body)
+        elif action == "quit_app" and hasattr(self._controller, "quit_application"):
+            self._controller.quit_application()
+        elif action == "action_button" and hasattr(self._controller, "handle_action_button_click"):
             self._controller.handle_action_button_click()
-        elif action == "toggle_settings":
+        elif action == "select_mode" and hasattr(self._controller, "select_mode"):
+            self._controller.select_mode(body.get("mode"))
+        elif action == "toggle_autoreset" and hasattr(self._controller, "set_autoreset_state"):
+            self._controller.set_autoreset_state(bool(body.get("value")))
+        elif action == "toggle_autorun" and hasattr(self._controller, "toggle_autorun"):
+            self._controller.toggle_autorun(bool(body.get("value")))
+        elif action == "toggle_settings" and hasattr(self._controller, "toggle_settings_panel"):
             self._controller.toggle_settings_panel()
-        elif action == "close_settings":
+        elif action == "close_settings" and hasattr(self._controller, "close_settings_panel"):
             self._controller.close_settings_panel()
-        elif action == "save_config":
+        elif action == "save_config" and hasattr(self._controller, "apply_config"):
             self._controller.apply_config(
                 game_id=body.get("game_id", "lol"),
                 client_id=body.get("client_id", ""),
                 details=body.get("details", ""),
                 duration_min=body.get("duration_min", 25),
+                buttons=body.get("buttons", []),
             )
-        elif action == "change_champion":
+        elif action == "change_champion" and hasattr(self._controller, "set_selected_champion"):
             self._controller.set_selected_champion(body.get("name", ""))
-        elif action == "change_rank":
+        elif action == "change_rank" and hasattr(self._controller, "select_rank"):
             self._controller.select_rank(body.get("rank", "Oro"))
-        elif action == "change_division":
+        elif action == "change_division" and hasattr(self._controller, "select_division"):
             self._controller.select_division(body.get("division", "II"))
-        elif action == "change_game_mode":
+        elif action == "change_game_mode" and hasattr(self._controller, "set_game_mode_text"):
             self._controller.set_game_mode_text(body.get("game_mode", ""))
+
+
+# Compatibility alias
+WebBridge = LoLWebBridge
 
 
 class LoLPopoverController(NSObject):
@@ -208,6 +267,7 @@ class LoLPopoverController(NSObject):
         self._client_id: str = saved.get("client_id", DEFAULT_CLIENT_ID)
         self._custom_details: str = saved.get("details", "En partida")
         self._match_duration_min: int = int(saved.get("match_duration_min", 25))
+        self._buttons: List[Dict[str, str]] = saved.get("buttons", [])
 
         # LoL Settings State
         self._champion: str = saved.get("champion", "Malzahar")
@@ -225,6 +285,7 @@ class LoLPopoverController(NSObject):
         self._on_autorun_toggle: Optional[Callable[[bool], None]] = None
         self._on_action_toggle: Optional[Callable[[bool], None]] = None
         self._on_config_change: Optional[Callable[..., None]] = None
+        self._on_quit: Optional[Callable[[], None]] = None
 
         # Cocoa UI References
         self._popover: Optional[AppKit.NSPopover] = None
@@ -251,6 +312,7 @@ class LoLPopoverController(NSObject):
         self._feedback_label: Optional[AppKit.NSTextField] = None
 
         self._action_button: Optional[AppKit.NSButton] = None
+        self._quit_button: Optional[AppKit.NSButton] = None
         self._web_view = None
         self._web_bridge = None
 
@@ -264,6 +326,7 @@ class LoLPopoverController(NSObject):
         on_action_toggle: Optional[Callable[[bool], None]] = None,
         on_config_change: Optional[Callable[..., None]] = None,
         rpc_manager: Optional[Any] = None,
+        on_quit: Optional[Callable[[], None]] = None,
         **kwargs,
     ) -> None:
         """Configures controller callbacks and optional RPC actor."""
@@ -275,6 +338,10 @@ class LoLPopoverController(NSObject):
             self._on_action_toggle = on_action_toggle
         if on_config_change is not None:
             self._on_config_change = on_config_change
+        if on_quit is not None:
+            self._on_quit = on_quit
+        elif kwargs.get("on_quit") is not None:
+            self._on_quit = kwargs.get("on_quit")
         if rpc_manager is not None:
             self._rpc_manager = rpc_manager
 
@@ -682,6 +749,17 @@ class LoLPopoverController(NSObject):
         self._action_button.setAction_(b"actionButtonClicked:")
         self._content_view.addSubview_(self._action_button)
 
+        self._quit_button = AppKit.NSButton.alloc().initWithFrame_(
+            AppKit.NSMakeRect(16, 320, 308, 24)
+        )
+        self._quit_button.setButtonType_(AppKit.NSButtonTypeMomentaryChange)
+        self._quit_button.setBezelStyle_(AppKit.NSBezelStyleInline)
+        self._quit_button.setTitle_("Salir de la aplicación")
+        self._quit_button.setFont_(AppKit.NSFont.systemFontOfSize_(11))
+        self._quit_button.setTarget_(self)
+        self._quit_button.setAction_(b"quitButtonClicked:")
+        self._content_view.addSubview_(self._quit_button)
+
     # =========================================================================
     # Visual State Updaters
     # =========================================================================
@@ -781,12 +859,14 @@ class LoLPopoverController(NSObject):
         try:
             ucc = WebKit.WKUserContentController.alloc().init()
             self._web_bridge = LoLWebBridge.alloc().initWithController_(self)
+            _RETAINED_WEB_BRIDGES.append(self._web_bridge)
             ucc.addScriptMessageHandler_name_(self._web_bridge, "lolrpc")
             config = WebKit.WKWebViewConfiguration.alloc().init()
             config.setUserContentController_(ucc)
 
             bounds = self._content_view.bounds()
-            self._web_view = WebKit.WKWebView.alloc().initWithFrame_configuration_(
+            wv_cls = LoLWebView if LoLWebView is not None else WebKit.WKWebView
+            self._web_view = wv_cls.alloc().initWithFrame_configuration_(
                 bounds, config
             )
             self._web_view.setValue_forKey_(False, "drawsBackground")
@@ -829,6 +909,7 @@ class LoLPopoverController(NSObject):
                 "client_id": getattr(self, "_client_id", DEFAULT_CLIENT_ID),
                 "custom_details": getattr(self, "_custom_details", "En partida"),
                 "match_duration_min": getattr(self, "_match_duration_min", 25),
+                "buttons": getattr(self, "_buttons", []),
                 "top_games": top_games_list,
             }
             html = generate_liquid_html(state)
@@ -889,6 +970,7 @@ class LoLPopoverController(NSObject):
             "client_id": getattr(self, "_client_id", DEFAULT_CLIENT_ID),
             "custom_details": getattr(self, "_custom_details", "En partida"),
             "match_duration_min": getattr(self, "_match_duration_min", 25),
+            "buttons": getattr(self, "_buttons", []),
             "top_games": top_games_list,
         }
         js = f"if (window.updateLiquidUI) {{ window.updateLiquidUI({json.dumps(state)}); }}"
@@ -900,11 +982,11 @@ class LoLPopoverController(NSObject):
     def _update_layout(self) -> None:
         """Adjusts popover frame size and action button position when settings expand/collapse."""
         if self._settings_expanded:
-            total_height = 495
+            total_height = 620
         elif self._current_mode == "detallado":
-            total_height = 580
+            total_height = 600
         else:
-            total_height = 360
+            total_height = 385
         has_web = getattr(self, "_web_view", None) is not None
 
         if self._settings_container:
@@ -922,13 +1004,21 @@ class LoLPopoverController(NSObject):
             self._web_view.setFrame_(self._content_view.bounds())
 
         # Position action button at the bottom of the container
-        btn_y = total_height - 52
+        btn_y = total_height - 62
         if self._action_button:
             self._action_button.setFrame_(
                 AppKit.NSMakeRect(16, btn_y, 308, 38)
             )
             if has_web:
                 self._action_button.setHidden_(True)
+
+        if self._quit_button:
+            if has_web:
+                self._quit_button.setHidden_(True)
+            else:
+                self._quit_button.setFrame_(
+                    AppKit.NSMakeRect(16, total_height - 24, 308, 20)
+                )
 
         if has_web:
             self._hide_native_fallback_controls()
@@ -942,6 +1032,10 @@ class LoLPopoverController(NSObject):
     @objc.IBAction
     def actionButtonClicked_(self, sender: Any) -> None:
         self.handle_action_button_click()
+
+    @objc.IBAction
+    def quitButtonClicked_(self, sender: Any) -> None:
+        self.quit_application()
 
     @objc.IBAction
     def gearButtonClicked_(self, sender: Any) -> None:
@@ -1025,12 +1119,32 @@ class LoLPopoverController(NSObject):
         """Returns settings gear button."""
         return self._gear_button
 
+    def _make_key_window(self) -> None:
+        """Ensures the popover window becomes key so WKWebView immediately receives user interactions."""
+        try:
+            app = AppKit.NSApplication.sharedApplication()
+            if app:
+                app.activateIgnoringOtherApps_(True)
+            win = None
+            if getattr(self, "_web_view", None):
+                win = self._web_view.window()
+            if not win and self._content_vc and self._content_vc.view():
+                win = self._content_vc.view().window()
+            if win:
+                win.makeKeyAndOrderFront_(None)
+        except Exception:
+            pass
+
     def show(self, positioning_view: Any = None) -> None:
         """
         Shows the popover anchored to the specified positioning view.
         Safe and idempotent if already shown.
         """
-        if self._is_shown:
+        if self._is_shown and hasattr(self._popover, "isShown") and self._popover.isShown():
+            app = AppKit.NSApplication.sharedApplication()
+            if app:
+                app.activateIgnoringOtherApps_(True)
+            self._make_key_window()
             return
         self._is_shown = True
 
@@ -1043,14 +1157,21 @@ class LoLPopoverController(NSObject):
                 )()
                 if not isinstance(rect, (AppKit.NSRect, tuple)):
                     rect = AppKit.NSMakeRect(0, 0, 0, 0)
+                logger.info("LoLPopoverController.show: presenting relative to rect %s of view %s", rect, positioning_view)
                 self._popover.showRelativeToRect_ofView_preferredEdge_(
                     rect, positioning_view, AppKit.NSRectEdgeMinY
                 )
+                logger.info("LoLPopoverController.show: isShown=%s", self._popover.isShown())
                 app = AppKit.NSApplication.sharedApplication()
                 if app:
                     app.activateIgnoringOtherApps_(True)
-            except Exception:
-                pass
+                self._make_key_window()
+                try:
+                    AppHelper.callAfter(self._make_key_window)
+                except Exception:
+                    pass
+            except Exception as e:
+                logger.warning("LoLPopoverController.show exception: %s", e)
 
     def close(self) -> None:
         """
@@ -1079,6 +1200,11 @@ class LoLPopoverController(NSObject):
             self._is_shown
             or (hasattr(self._popover, "isShown") and self._popover.isShown())
         )
+
+    def popoverDidShow_(self, notification: Any) -> None:
+        """NSPopoverDelegate callback triggered when the popover is presented."""
+        self._is_shown = True
+        self._make_key_window()
 
     def popoverDidClose_(self, notification: Any) -> None:
         """NSPopoverDelegate callback triggered when dismissed by outside click."""
@@ -1254,7 +1380,11 @@ class LoLPopoverController(NSObject):
             if enabled:
                 # 1. Manage LaunchAgent plist
                 os.makedirs(os.path.dirname(plist_path), exist_ok=True)
-                plist_content = """<?xml version="1.0" encoding="UTF-8"?>
+                logs_dir = os.path.expanduser("~/Library/Logs")
+                os.makedirs(logs_dir, exist_ok=True)
+                stdout_path = os.path.join(logs_dir, "lol_discord_rpc.log")
+                stderr_path = os.path.join(logs_dir, "lol_discord_rpc_error.log")
+                plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -1262,16 +1392,17 @@ class LoLPopoverController(NSObject):
     <string>com.victormanuel.lolrpc</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/open</string>
-        <string>-a</string>
-        <string>/Applications/League of Legends RPC.app</string>
-        <string>--args</string>
+        <string>/Applications/League of Legends RPC.app/Contents/MacOS/League of Legends RPC</string>
         <string>--silent</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>ProcessType</key>
     <string>Interactive</string>
+    <key>StandardOutPath</key>
+    <string>{stdout_path}</string>
+    <key>StandardErrorPath</key>
+    <string>{stderr_path}</string>
 </dict>
 </plist>
 """
@@ -1538,12 +1669,84 @@ class LoLPopoverController(NSObject):
         self._settings_expanded = False
         self._update_layout()
 
+    def open_settings_panel(self) -> None:
+        """Explicitly opens the settings / configuration panel."""
+        self._settings_expanded = True
+        self._update_layout()
+        self._sync_to_web()
+
+    def handle_web_action(self, action: str, body: Optional[Dict[str, Any]] = None) -> None:
+        """Processes high-level web actions dispatched from WebKit JavaScript."""
+        if body is None:
+            body = {}
+        logger.info("LoLPopoverController handle_web_action: %s", action)
+        if action == "select_mode":
+            self.select_mode(body.get("mode"))
+        elif action == "toggle_autoreset":
+            self.set_autoreset_state(bool(body.get("value")))
+        elif action == "toggle_autorun":
+            self.toggle_autorun(bool(body.get("value")))
+        elif action == "action_button":
+            self.handle_action_button_click()
+        elif action == "toggle_settings":
+            self.toggle_settings_panel()
+        elif action == "close_settings":
+            self.close_settings_panel()
+        elif action == "save_config":
+            self.apply_config(
+                game_id=body.get("game_id", "lol"),
+                client_id=body.get("client_id", ""),
+                details=body.get("details", ""),
+                duration_min=body.get("duration_min", 25),
+                buttons=body.get("buttons", []),
+            )
+        elif action == "change_champion":
+            self.set_selected_champion(body.get("name", ""))
+        elif action == "change_rank":
+            self.select_rank(body.get("rank", "Oro"))
+        elif action == "change_division":
+            self.select_division(body.get("division", "II"))
+        elif action == "change_game_mode":
+            self.set_game_mode_text(body.get("game_mode", ""))
+        elif action == "quit_app":
+            self.quit_application()
+
+    def quit_application(self) -> None:
+        """Closes the popover and cleanly terminates the macOS application."""
+        logger.info("LoLPopoverController.quit_application initiated.")
+        self.close()
+        if callable(self._on_quit):
+            try:
+                self._on_quit()
+                return
+            except Exception as e:
+                logger.warning("Error invoking on_quit callback: %s", e)
+        app = AppKit.NSApplication.sharedApplication()
+        if app and app.isRunning():
+            app.terminate_(None)
+        if "unittest" not in sys.modules and "pytest" not in sys.modules:
+            import threading
+            threading.Timer(0.15, lambda: os._exit(0)).start()
+
+    def show_toast(self, message: str, toast_type: str = "error") -> None:
+        """Displays an animated toast message in the WebKit Liquid Glass UI."""
+        if getattr(self, "_web_view", None):
+            import json
+            escaped_msg = json.dumps(str(message))
+            escaped_type = json.dumps(str(toast_type))
+            js = f"if (window.showToast) {{ window.showToast({escaped_msg}, {escaped_type}); }}"
+            try:
+                self._web_view.evaluateJavaScript_completionHandler_(js, None)
+            except Exception as e:
+                logger.debug("Failed evaluating showToast in WebKit: %s", e)
+
     def apply_config(
         self,
         game_id: str,
         client_id: str,
         details: str,
         duration_min: int = 25,
+        buttons: Optional[List[Dict[str, str]]] = None,
     ) -> None:
         """Applies new game preset & client ID, persists config, and notifies RPC manager."""
         self._selected_game_id = str(game_id or "lol").strip()
@@ -1557,6 +1760,9 @@ class LoLPopoverController(NSObject):
             self._match_duration_min = int(duration_min)
         except Exception:
             self._match_duration_min = 25
+
+        if buttons is not None:
+            self._buttons = buttons
 
         # Persist user config
         cfg = {
@@ -1572,6 +1778,7 @@ class LoLPopoverController(NSObject):
             "rank": self._rank,
             "division": self._division,
             "game_mode": self._game_mode,
+            "buttons": getattr(self, "_buttons", []),
         }
         save_user_config(cfg)
 
@@ -1592,6 +1799,15 @@ class LoLPopoverController(NSObject):
                     )
                 elif hasattr(self._rpc_manager, "set_client_id"):
                     self._rpc_manager.set_client_id(self._client_id)
+
+                if hasattr(self._rpc_manager, "update_presence_config"):
+                    self._rpc_manager.update_presence_config(buttons=self._buttons)
+            except Exception:
+                pass
+
+        if callable(self._on_config_change):
+            try:
+                self._on_config_change(cfg)
             except Exception:
                 pass
 

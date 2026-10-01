@@ -368,13 +368,17 @@ class TestLaunchAgentAndStartupCLI(unittest.TestCase):
         self.assertEqual(plist.get("ProcessType"), "Interactive")
         self.assertTrue(plist.get("RunAtLoad"))
 
-        # Validate ProgramArguments contains --args --silent
+        # Validate ProgramArguments contains direct binary executable and --silent
         args = plist.get("ProgramArguments", [])
         self.assertIsInstance(args, list)
-        self.assertIn("/usr/bin/open", args)
-        self.assertIn("/Applications/League of Legends RPC.app", args)
-        self.assertIn("--args", args)
+        self.assertIn("/Applications/League of Legends RPC.app/Contents/MacOS/League of Legends RPC", args)
         self.assertIn("--silent", args)
+
+        # Validate log paths
+        self.assertIn("StandardOutPath", plist)
+        self.assertIn("StandardErrorPath", plist)
+        self.assertTrue(plist["StandardOutPath"].endswith("lol_discord_rpc.log"))
+        self.assertTrue(plist["StandardErrorPath"].endswith("lol_discord_rpc_error.log"))
 
     def test_silent_flag_startup_behavior(self):
         """

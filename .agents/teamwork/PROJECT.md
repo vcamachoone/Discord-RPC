@@ -57,6 +57,15 @@ Every feature identified during the survey phase is mapped to a specific milesto
 | F12 | App Bundle Packaging & Sync | Synchronization to /Applications/League of Legends RPC.app and launcher verification | M4 | ORIGINAL_REQUEST §R4 |
 | F13 | End-to-End Test Suite | Comprehensive 5-tier test suite verifying UI, concurrency, DDragon, and bundle | E2E Track | PROJECT Pattern |
 | F14 | Audit Defect Fixes & Hardening | LoLWebBridge dispatch fix, Unranked tier, community aliases, attribute injection defense, threading.Lock, Darwin socket teardown, silent boot | M6 | ORIGINAL_REQUEST Follow-up §R1-R4 |
+| F15 | Menubar Right-Click Context Menu | Cocoa NSMenu on right-click of NSStatusItem with Open, Pause/Resume, Settings, Quit (Cmd+Q) | M7 | ORIGINAL_REQUEST Follow-up §R1 |
+| F16 | UI Quit Application Controls | Visible "Salir de la aplicación" controls in popover main and config views | M7 | ORIGINAL_REQUEST Follow-up §R1 |
+| F17 | Single-Instance Lock & Focus | Unix domain socket + flock single-instance lock focusing existing window without duplicates | M7 | ORIGINAL_REQUEST Follow-up §R1 |
+| F18 | Hardened Auto-Start & Notifications | LaunchAgent pointing directly to bundle binary with ~/Library/Logs/ and launch notifications | M7 | ORIGINAL_REQUEST Follow-up §R1 |
+| F19 | System Event Listeners & Error Toast | NSWorkspaceDidLaunchApplicationNotification, NSWorkspaceDidWakeNotification, in-app error toast | M7 | ORIGINAL_REQUEST Follow-up §R4 |
+| F20 | Discord Interactive Profile Buttons | Configurable 2 clickable buttons, HTTPS sanitization, config.json persistence, pypresence None handling | M8 | ORIGINAL_REQUEST Follow-up §R2 |
+| F21 | Automated GitHub Actions CI/CD Pipeline | macos-latest release workflow, test execution, DMG compilation, and GitHub release attachment | M9 | ORIGINAL_REQUEST Follow-up §R3 |
+| F22 | Standalone DMG Packaging Hardening | build_dmg.py dynamic site-packages, launcher path cleanup, .dmg.sha256 export | M9 | ORIGINAL_REQUEST Follow-up §R3 |
+| F23 | Production Tier 6 Test Suite & Audit | Comprehensive 100% test coverage for R1-R4 and forensic integrity audit | M10 | ORIGINAL_REQUEST Follow-up Verification |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
@@ -68,6 +77,10 @@ Every feature identified during the survey phase is mapped to a specific milesto
 | M4 | Application Integration & Bundle Sync | Master integration in `app_gui.py` and bundle synchronization to `/Applications/League of Legends RPC.app` | M1, M2, M3 | DONE |
 | M5 | Final E2E Test Pass & Coverage Hardening | 100% pass of E2E test suite (149 tests across Tiers 1-5), Gate APPROVE by 2 Reviewers, 2 Challengers, and CLEAN by Auditor | M4, E2E | DONE |
 | M6 | System Audit, Defect Discovery & Hardening | Full audit of Liquid Glass UI, Discord IPC concurrency with threading.Lock, macOS LaunchAgent silent boot, 239/239 tests passing, Gate APPROVE by 2 Reviewers, 2 Challengers, and CLEAN by Auditor | M5 | DONE |
+| M7 | App Lifecycle, Menubar & System Events | NSStatusItem right-click NSMenu, UI Quit buttons, Single-Instance Lock, hardened LaunchAgent & system event listeners (R1 & R4) | M6 | DONE |
+| M8 | Discord Interactive Profile Buttons | Discord Rich Presence buttons, HTTPS URL validation, #view-config UI, config.json persistence, pypresence None handling (R2) | M7 | DONE |
+| M9 | CI/CD Release Pipeline & DMG Hardening | `.github/workflows/release.yml`, `build_dmg.py` hardening, SHA-256 export, standalone bundle verification (R3) | M8 | DONE |
+| M10 | Production Test Suite & Forensic Audit | `tests/test_tier6_production.py`, runner integration, 100% test pass across all tiers, Reviewers, Challengers & Forensic Auditor Gate | M9 | DONE |
 
 ## Interface Contracts
 

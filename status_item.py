@@ -17,7 +17,7 @@ Implements LoLStatusItemController, an AppKit/PyObjC controller managing:
 
 import os
 import sys
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import AppKit
 import objc
@@ -31,6 +31,9 @@ except ImportError:
     import assets_gen
 
 
+_GLOBAL_STATUS_ITEM_CONTROLLERS: List[Any] = []
+
+
 class LoLStatusItemController(NSObject):
     """
     Cocoa status bar controller managing an NSStatusItem for League of Legends Discord RPC.
@@ -41,6 +44,7 @@ class LoLStatusItemController(NSObject):
         # and Objective-C style LoLStatusItemController.alloc().init()
         instance = cls.alloc().init()
         instance._setup(*args, **kwargs)
+        _GLOBAL_STATUS_ITEM_CONTROLLERS.append(instance)
         return instance
 
     def _setup(
@@ -66,6 +70,9 @@ class LoLStatusItemController(NSObject):
             assets_dir = kwargs.get("assets_dir")
 
         self._on_toggle: Optional[Callable] = cb
+        self._on_toggle_presence: Optional[Callable] = kwargs.get("on_toggle_presence")
+        self._on_open_settings: Optional[Callable] = kwargs.get("on_open_settings")
+        self._on_quit: Optional[Callable] = kwargs.get("on_quit")
         self._assets_dir: Optional[str] = assets_dir
         self._current_state: str = "normal"
         self._status_bar: Optional[AppKit.NSStatusBar] = None
@@ -93,6 +100,9 @@ class LoLStatusItemController(NSObject):
         if self._button is not None:
             self._button.setTarget_(self)
             self._button.setAction_(b"statusItemButtonClicked:")
+            self._button.sendActionOn_(
+                AppKit.NSEventMaskLeftMouseUp | AppKit.NSEventMaskRightMouseUp
+            )
             self._button.setToolTip_("Discord RPC - League of Legends")
             if hasattr(self._button, "setAccessibilityTitle_"):
                 self._button.setAccessibilityTitle_("Discord RPC League of Legends")
@@ -133,12 +143,132 @@ class LoLStatusItemController(NSObject):
 
             self._icons[state] = img
 
+    def build_context_menu(self) -> AppKit.NSMenu:
+        """
+        Constructs the native Cocoa context menu for secondary right-clicks on the status item.
+        Items:
+          - 'Abrir Popover'
+          - 'Pausar Presencia' / 'Reanudar Presencia'
+          - 'Configuración ⚙️'
+          - Separator
+          - 'Salir de Discord RPC' (Cmd+Q)
+        """
+        menu = AppKit.NSMenu.alloc().initWithTitle_("StatusItemContextMenu")
+
+        item_open = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            "Abrir Popover",
+            b"menuOpenPopover:",
+            "",
+        )
+        item_open.setTarget_(self)
+        menu.addItem_(item_open)
+
+        presence_title = "Pausar Presencia" if self._current_state == "active" else "Reanudar Presencia"
+        item_presence = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            presence_title,
+            b"menuTogglePresence:",
+            "",
+        )
+        item_presence.setTarget_(self)
+        menu.addItem_(item_presence)
+
+        item_settings = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            "Configuración ⚙️",
+            b"menuOpenSettings:",
+            ",",
+        )
+        item_settings.setTarget_(self)
+        menu.addItem_(item_settings)
+
+        menu.addItem_(AppKit.NSMenuItem.separatorItem())
+
+        item_quit = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            "Salir de Discord RPC",
+            b"menuQuit:",
+            "q",
+        )
+        item_quit.setTarget_(self)
+        menu.addItem_(item_quit)
+
+        return menu
+
+    @objc.IBAction
+    def menuOpenPopover_(self, sender: Any) -> None:
+        """Menu item action: opens/toggles the popover HUD."""
+        if callable(self._on_toggle):
+            target_sender = self._button
+            try:
+                self._on_toggle(target_sender)
+            except TypeError:
+                self._on_toggle()
+
+    @objc.IBAction
+    def menuTogglePresence_(self, sender: Any) -> None:
+        """Menu item action: toggles Discord RPC presence between active and paused."""
+        if callable(self._on_toggle_presence):
+            try:
+                self._on_toggle_presence()
+            except Exception:
+                pass
+
+    @objc.IBAction
+    def menuOpenSettings_(self, sender: Any) -> None:
+        """Menu item action: opens the settings view in the popover HUD."""
+        if callable(self._on_open_settings):
+            try:
+                self._on_open_settings()
+            except Exception:
+                pass
+
+    @objc.IBAction
+    def menuQuit_(self, sender: Any) -> None:
+        """Menu item action: terminates the application."""
+        if callable(self._on_quit):
+            try:
+                self._on_quit()
+                return
+            except Exception:
+                pass
+        app = AppKit.NSApplication.sharedApplication()
+        if app and app.isRunning():
+            app.terminate_(None)
+
+    def set_context_menu_callbacks(
+        self,
+        on_toggle_presence: Optional[Callable] = None,
+        on_open_settings: Optional[Callable] = None,
+        on_quit: Optional[Callable] = None,
+    ) -> None:
+        """Updates callbacks for context menu actions."""
+        if on_toggle_presence is not None:
+            self._on_toggle_presence = on_toggle_presence
+        if on_open_settings is not None:
+            self._on_open_settings = on_open_settings
+        if on_quit is not None:
+            self._on_quit = on_quit
+
     @objc.IBAction
     def statusItemButtonClicked_(self, sender) -> None:
         """
         Cocoa action triggered when the user clicks the status item button.
-        Invokes the registered Python popover toggle callback.
+        Checks for secondary right-click or Control-click to present context menu,
+        otherwise invokes standard popover toggle.
         """
+        event = AppKit.NSApp.currentEvent()
+        is_right_click = False
+        if event is not None:
+            etype = event.type()
+            if etype in (AppKit.NSEventTypeRightMouseUp, AppKit.NSEventTypeRightMouseDown):
+                is_right_click = True
+            elif bool(event.modifierFlags() & AppKit.NSEventModifierFlagControl):
+                is_right_click = True
+
+        if is_right_click:
+            menu = self.build_context_menu()
+            if hasattr(self._status_item, "popUpStatusItemMenu_"):
+                self._status_item.popUpStatusItemMenu_(menu)
+            return
+
         if callable(self._on_toggle):
             target_sender = sender if sender is not None else self._button
             try:
@@ -233,6 +363,11 @@ class LoLStatusItemController(NSObject):
             self._status_item = None
             self._button = None
             self._cleaned_up = True
+            if self in _GLOBAL_STATUS_ITEM_CONTROLLERS:
+                try:
+                    _GLOBAL_STATUS_ITEM_CONTROLLERS.remove(self)
+                except ValueError:
+                    pass
 
     def dealloc(self) -> None:
         """

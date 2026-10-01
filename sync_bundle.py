@@ -180,8 +180,38 @@ def sync_app_bundle(
     logger.info("Synchronizing application bundle: %s -> %s (dry_run=%s)", src_dir, bundle_path, dry_run)
 
     if not os.path.isdir(bundle_path):
-        logger.error("Target bundle path does not exist: %s", bundle_path)
-        return False
+        if dry_run:
+            logger.info("Target bundle does not exist (%s), but dry_run is True. Validating source modules.", bundle_path)
+            for mod in RUNTIME_MODULES:
+                src_file = os.path.join(src_dir, mod)
+                if not os.path.isfile(src_file):
+                    logger.warning("Dry run warning: source module not found: %s", src_file)
+            return True
+
+        logger.info("Target bundle does not exist (%s). Initializing bundle structure...", bundle_path)
+        try:
+            import build_dmg
+            build_dmg.stage_application_bundle(bundle_path, bundle_deps=False)
+        except Exception as e:
+            logger.warning("Could not auto-stage bundle via build_dmg: %s. Creating basic skeleton.", e)
+            os.makedirs(os.path.join(bundle_path, "Contents", "Resources"), exist_ok=True)
+            os.makedirs(os.path.join(bundle_path, "Contents", "MacOS"), exist_ok=True)
+            plist_path = os.path.join(bundle_path, "Contents", "Info.plist")
+            if not os.path.exists(plist_path):
+                plist_data = {
+                    "CFBundleExecutable": "League of Legends RPC",
+                    "CFBundleIconFile": "AppIcon",
+                    "CFBundleIdentifier": "com.victormanuel.lolrpc",
+                    "CFBundleName": "Discord RPC",
+                    "CFBundleDisplayName": "Discord RPC",
+                    "CFBundlePackageType": "APPL",
+                    "CFBundleShortVersionString": "1.0.0",
+                    "CFBundleVersion": "1.0.0",
+                    "NSHighResolutionCapable": True,
+                    "LSUIElement": True,
+                }
+                with open(plist_path, "wb") as f:
+                    plistlib.dump(plist_data, f)
 
     resources_dir = os.path.join(bundle_path, "Contents", "Resources")
     macos_dir = os.path.join(bundle_path, "Contents", "MacOS")

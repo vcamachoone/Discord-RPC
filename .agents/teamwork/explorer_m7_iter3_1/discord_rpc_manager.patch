@@ -1,0 +1,196 @@
+--- discord_rpc_manager.py	2026-09-29 21:35:55
++++ .agents/teamwork/explorer_m7_iter3_1/proposed_discord_rpc_manager.py	2026-09-29 22:02:46
+@@ -229,6 +229,7 @@
+         self._running: bool = True
+         self._state: str = RPCState.DISCONNECTED
+         self._rpc: Optional[Presence] = None
++        self._connecting_rpc: Optional[Presence] = None
+         self._loop: Optional[asyncio.AbstractEventLoop] = None
+         self._lock: threading.RLock = threading.RLock()
+ 
+@@ -322,7 +323,7 @@
+         self._running = False
+         self._safe_close_rpc()
+         self._cmd_queue.put(("SHUTDOWN", None))
+-        if self._worker_thread.is_alive():
++        if self._worker_thread.is_alive() and threading.current_thread() != self._worker_thread:
+             self._worker_thread.join(timeout=4.0)
+ 
+     @property
+@@ -380,23 +381,93 @@
+ 
+     def _notify_match_reset(self, new_start_time: int) -> None:
+         self._dispatch_to_main(self.on_match_reset, new_start_time)
++
++    def _safe_close_target(self, target: Any) -> None:
++        """Safely terminates a Presence target instance, its socket, and event loop."""
++        if not target:
++            return
++
++        setattr(target, "_aborted", True)
++
++        # 1. Forcefully abort socket transport to break any in-flight reads
++        try:
++            sock_writer = getattr(target, "sock_writer", None)
++            if sock_writer is not None:
++                try:
++                    transport = getattr(sock_writer, "transport", None)
++                    if transport is not None and hasattr(transport, "abort"):
++                        transport.abort()
++                except Exception:
++                    pass
++                try:
++                    if hasattr(sock_writer, "close"):
++                        sock_writer.close()
++                except Exception:
++                    pass
++        except Exception:
++            pass
+ 
++        # 2. Stop running or pending event loop thread-safely
++        try:
++            loop = getattr(target, "loop", None)
++            if loop is not None:
++                def _cancel_and_stop():
++                    try:
++                        for task in asyncio.all_tasks(loop):
++                            task.cancel()
++                            try:
++                                task._log_destroy_pending = False
++                            except Exception:
++                                pass
++                    except Exception:
++                        pass
++                    try:
++                        loop.stop()
++                    except Exception:
++                        pass
++
++                try:
++                    if hasattr(loop, "is_running") and loop.is_running():
++                        if hasattr(loop, "call_soon_threadsafe"):
++                            loop.call_soon_threadsafe(_cancel_and_stop)
++                        elif hasattr(loop, "stop"):
++                            loop.stop()
++                    elif hasattr(loop, "stop"):
++                        loop.stop()
++                except Exception:
++                    pass
++        except Exception:
++            pass
++
++        # 3. Close the presence instance
++        try:
++            if hasattr(target, "close"):
++                target.close()
++        except Exception:
++            pass
++
+     def _safe_close_rpc(self) -> None:
+-        """Safely closes Discord RPC instance ensuring socket writer is closed immediately."""
++        """Safely closes Discord RPC instance and in-flight connecting instance."""
+         with self._lock:
+             rpc = self._rpc
+             self._rpc = None
+-        if rpc:
+-            try:
+-                if hasattr(rpc, "sock_writer") and rpc.sock_writer:
+-                    rpc.sock_writer.close()
+-            except Exception:
+-                pass
+-            try:
+-                rpc.close()
+-            except Exception:
+-                pass
++            connecting = self._connecting_rpc
++            self._connecting_rpc = None
+ 
++        for target in (rpc, connecting):
++            self._safe_close_target(target)
++
++        # Also ensure manager event loop is stopped if active
++        try:
++            if self._loop is not None:
++                if hasattr(self._loop, "is_running") and self._loop.is_running():
++                    if hasattr(self._loop, "call_soon_threadsafe") and hasattr(self._loop, "stop"):
++                        self._loop.call_soon_threadsafe(self._loop.stop)
++                elif hasattr(self._loop, "stop"):
++                    self._loop.stop()
++        except Exception:
++            pass
++
+     # -------------------------------------------------------------------------
+     # Actor Worker Loop
+     # -------------------------------------------------------------------------
+@@ -413,18 +484,51 @@
+                 rpc = self._rpc
+             if active and (rpc is None):
+                 self._notify_state(RPCState.CONNECTING, "Conectando a Discord...")
++                new_rpc = None
+                 try:
+                     new_rpc = Presence(self.client_id, loop=self._loop)
++                    with self._lock:
++                        if not self._running:
++                            break
++                        self._connecting_rpc = new_rpc
++
++                    # Intercept update_event_loop to stop any freshly created loop if aborted
++                    if hasattr(new_rpc, "update_event_loop"):
++                        orig_update_loop = new_rpc.update_event_loop
++                        def _tracked_update_loop(loop_arg, _rpc=new_rpc):
++                            orig_update_loop(loop_arg)
++                            if getattr(_rpc, "_aborted", False) or not self._running:
++                                try:
++                                    loop_arg.stop()
++                                except Exception:
++                                    pass
++                        new_rpc.update_event_loop = _tracked_update_loop
++
++                    if getattr(new_rpc, "_aborted", False) or not self._running:
++                        self._safe_close_target(new_rpc)
++                        break
++
+                     new_rpc.connect()
++
+                     with self._lock:
++                        self._connecting_rpc = None
++                        if not self._running or getattr(new_rpc, "_aborted", False):
++                            self._safe_close_target(new_rpc)
++                            break
+                         self._rpc = new_rpc
++
+                     self._notify_state(RPCState.CONNECTED, "Activo en Discord")
+                     self._send_rpc_update()
+                 except RECONNECT_EXCEPTIONS:
++                    with self._lock:
++                        if new_rpc is not None and self._connecting_rpc is new_rpc:
++                            self._connecting_rpc = None
++                    if new_rpc is not None:
++                        self._safe_close_target(new_rpc)
+                     self._safe_close_rpc()
+-                    self._notify_state(RPCState.DISCONNECTED, "Esperando a Discord...")
+                     if not self._running:
+                         break
++                    self._notify_state(RPCState.DISCONNECTED, "Esperando a Discord...")
+                     # Interleaved wait on command queue during reconnect backoff
+                     try:
+                         cmd, payload = self._cmd_queue.get(timeout=3.5)
+@@ -434,11 +538,16 @@
+                     if not self._running:
+                         break
+                     continue
+-                except Exception as e:
++                except (Exception, asyncio.CancelledError) as e:
++                    with self._lock:
++                        if new_rpc is not None and self._connecting_rpc is new_rpc:
++                            self._connecting_rpc = None
++                    if new_rpc is not None:
++                        self._safe_close_target(new_rpc)
+                     self._safe_close_rpc()
+-                    self._notify_state(RPCState.DISCONNECTED, f"Error: {e}")
+                     if not self._running:
+                         break
++                    self._notify_state(RPCState.DISCONNECTED, f"Error: {e}")
+                     try:
+                         cmd, payload = self._cmd_queue.get(timeout=3.5)
+                         self._process_command(cmd, payload)

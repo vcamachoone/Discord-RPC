@@ -144,7 +144,7 @@ class TestAuditFixes(unittest.TestCase):
         # Confirm ALLOWED_CONFIG_KEYS contains expected whitelist
         expected_keys = {
             "mode", "champion_name", "champion_image_url", "rank_text",
-            "rank_image_url", "game_mode", "details", "autoreset"
+            "rank_image_url", "game_mode", "details", "autoreset", "buttons"
         }
         self.assertEqual(ALLOWED_CONFIG_KEYS, expected_keys)
 
@@ -251,10 +251,10 @@ class TestAuditFixes(unittest.TestCase):
         self.assertTrue("--silent" in test_argv_silent or "--background" in test_argv_silent)
         self.assertTrue("--silent" in test_argv_bg or "--background" in test_argv_bg)
 
-        # Test popover_ui LaunchAgent plist template includes --args and --silent
+        # Test popover_ui LaunchAgent plist template includes direct binary and --silent
         import inspect
         source = inspect.getsource(LoLPopoverController._sync_login_item)
-        self.assertIn("<string>--args</string>", source)
+        self.assertIn("/Applications/League of Legends RPC.app/Contents/MacOS/League of Legends RPC", source)
         self.assertIn("<string>--silent</string>", source)
 
     def test_07_status_item_accessibility_attributes(self):

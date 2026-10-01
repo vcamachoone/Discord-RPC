@@ -14,7 +14,7 @@ import queue
 import random
 import threading
 import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pypresence import (
     Presence,
@@ -172,7 +172,57 @@ ALLOWED_CONFIG_KEYS = {
     "game_mode",
     "details",
     "autoreset",
+    "buttons",
 }
+
+
+def sanitize_buttons(raw_buttons: Any) -> Optional[List[Dict[str, str]]]:
+    """
+    Sanitizes and validates Discord Rich Presence interactive profile buttons.
+
+    Rules enforced:
+      - raw_buttons must be a list or tuple.
+      - Maximum of 2 buttons.
+      - Each button must be a dict with non-empty 'label' (<= 32 chars) and 'url' (<= 512 chars).
+      - Enforce HTTPS: prefix 'https://' if missing, upgrade 'http://' to 'https://'.
+      - Incomplete buttons (missing/empty label or URL) are dropped cleanly.
+      - Returns None if no valid buttons exist, preventing Discord schema rejection on empty arrays.
+    """
+    if not isinstance(raw_buttons, (list, tuple)):
+        return None
+
+    valid: List[Dict[str, str]] = []
+    for item in raw_buttons:
+        if not isinstance(item, dict):
+            continue
+
+        raw_label = item.get("label")
+        raw_url = item.get("url")
+
+        if raw_label is None or raw_url is None:
+            continue
+
+        label = str(raw_label).strip()
+        url = str(raw_url).strip()
+
+        if not label or not url:
+            continue
+
+        # Enforce HTTPS
+        if url.startswith("http://"):
+            url = "https://" + url[7:]
+        elif not url.startswith("https://"):
+            url = "https://" + url
+
+        # Truncate label to 32 and url to 512
+        label = label[:32]
+        url = url[:512]
+
+        valid.append({"label": label, "url": url})
+        if len(valid) == 2:
+            break
+
+    return valid if valid else None
 
 # Exceptions caught during connection and reconnection to prevent leaking generic errors
 RECONNECT_EXCEPTIONS = (
@@ -229,8 +279,9 @@ class DiscordRPCManager:
         self._running: bool = True
         self._state: str = RPCState.DISCONNECTED
         self._rpc: Optional[Presence] = None
+        self._connecting_rpc: Optional[Presence] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._lock: threading.Lock = threading.Lock()
+        self._lock: threading.RLock = threading.RLock()
 
         # Presence configuration state
         self.is_active: bool = True
@@ -247,6 +298,7 @@ class DiscordRPCManager:
         self.rank_image_url: str = ""
         self.game_mode: str = saved.get("game_mode", "Grieta del Invocador (Clasificatoria)")
         self.details: str = saved.get("details", "En partida")
+        self.buttons: List[Dict[str, str]] = saved.get("buttons", [])
 
         # Worker thread
         self._worker_thread = threading.Thread(
@@ -305,7 +357,7 @@ class DiscordRPCManager:
         """
         Thread-safe configuration update from Cocoa UI.
         Supported keys: mode, champion_name, champion_image_url, rank_text,
-        rank_image_url, game_mode, details, autoreset.
+        rank_image_url, game_mode, details, autoreset, buttons.
         """
         self._cmd_queue.put(("CONFIG_CHANGE", kwargs))
 
@@ -313,12 +365,17 @@ class DiscordRPCManager:
         """Resets the match timer back to 00:00."""
         self._cmd_queue.put(("RESTART_MATCH", None))
 
+    def reconnect(self) -> None:
+        """Forces an immediate reconnection attempt, interrupting backoff sleep."""
+        self._cmd_queue.put(("RECONNECT", None))
+
     def shutdown(self) -> None:
         """Gracefully terminates the background worker and closes Discord IPC socket."""
         self._running = False
+        self._safe_close_rpc()
         self._cmd_queue.put(("SHUTDOWN", None))
-        if self._worker_thread.is_alive():
-            self._worker_thread.join(timeout=2.5)
+        if self._worker_thread.is_alive() and threading.current_thread() != self._worker_thread:
+            self._worker_thread.join(timeout=4.0)
 
     @property
     def state(self) -> str:
@@ -376,21 +433,91 @@ class DiscordRPCManager:
     def _notify_match_reset(self, new_start_time: int) -> None:
         self._dispatch_to_main(self.on_match_reset, new_start_time)
 
+    def _safe_close_target(self, target: Any) -> None:
+        """Safely terminates a Presence target instance, its socket, and event loop."""
+        if not target:
+            return
+
+        setattr(target, "_aborted", True)
+
+        # 1. Forcefully abort socket transport to break any in-flight reads
+        try:
+            sock_writer = getattr(target, "sock_writer", None)
+            if sock_writer is not None:
+                try:
+                    transport = getattr(sock_writer, "transport", None)
+                    if transport is not None and hasattr(transport, "abort"):
+                        transport.abort()
+                except Exception:
+                    pass
+                try:
+                    if hasattr(sock_writer, "close"):
+                        sock_writer.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # 2. Stop running or pending event loop thread-safely
+        try:
+            loop = getattr(target, "loop", None)
+            if loop is not None:
+                def _cancel_and_stop():
+                    try:
+                        for task in asyncio.all_tasks(loop):
+                            task.cancel()
+                            try:
+                                task._log_destroy_pending = False
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                    try:
+                        loop.stop()
+                    except Exception:
+                        pass
+
+                try:
+                    if hasattr(loop, "is_running") and loop.is_running():
+                        if hasattr(loop, "call_soon_threadsafe"):
+                            loop.call_soon_threadsafe(_cancel_and_stop)
+                        elif hasattr(loop, "stop"):
+                            loop.stop()
+                    elif hasattr(loop, "stop"):
+                        loop.stop()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # 3. Close the presence instance
+        try:
+            if hasattr(target, "close"):
+                target.close()
+        except Exception:
+            pass
+
     def _safe_close_rpc(self) -> None:
-        """Safely closes Discord RPC instance ensuring socket writer is closed immediately."""
+        """Safely closes Discord RPC instance and in-flight connecting instance."""
         with self._lock:
             rpc = self._rpc
             self._rpc = None
-        if rpc:
-            try:
-                if hasattr(rpc, "sock_writer") and rpc.sock_writer:
-                    rpc.sock_writer.close()
-            except Exception:
-                pass
-            try:
-                rpc.close()
-            except Exception:
-                pass
+            connecting = self._connecting_rpc
+            self._connecting_rpc = None
+
+        for target in (rpc, connecting):
+            self._safe_close_target(target)
+
+        # Also ensure manager event loop is stopped if active
+        try:
+            if self._loop is not None:
+                if hasattr(self._loop, "is_running") and self._loop.is_running():
+                    if hasattr(self._loop, "call_soon_threadsafe") and hasattr(self._loop, "stop"):
+                        self._loop.call_soon_threadsafe(self._loop.stop)
+                elif hasattr(self._loop, "stop"):
+                    self._loop.stop()
+        except Exception:
+            pass
 
     # -------------------------------------------------------------------------
     # Actor Worker Loop
@@ -408,15 +535,50 @@ class DiscordRPCManager:
                 rpc = self._rpc
             if active and (rpc is None):
                 self._notify_state(RPCState.CONNECTING, "Conectando a Discord...")
+                new_rpc = None
                 try:
                     new_rpc = Presence(self.client_id, loop=self._loop)
-                    new_rpc.connect()
                     with self._lock:
+                        if not self._running:
+                            break
+                        self._connecting_rpc = new_rpc
+
+                    # Intercept update_event_loop to stop any freshly created loop if aborted
+                    if hasattr(new_rpc, "update_event_loop"):
+                        orig_update_loop = new_rpc.update_event_loop
+                        def _tracked_update_loop(loop_arg, _rpc=new_rpc):
+                            orig_update_loop(loop_arg)
+                            if getattr(_rpc, "_aborted", False) or not self._running:
+                                try:
+                                    loop_arg.stop()
+                                except Exception:
+                                    pass
+                        new_rpc.update_event_loop = _tracked_update_loop
+
+                    if getattr(new_rpc, "_aborted", False) or not self._running:
+                        self._safe_close_target(new_rpc)
+                        break
+
+                    new_rpc.connect()
+
+                    with self._lock:
+                        self._connecting_rpc = None
+                        if not self._running or getattr(new_rpc, "_aborted", False):
+                            self._safe_close_target(new_rpc)
+                            break
                         self._rpc = new_rpc
+
                     self._notify_state(RPCState.CONNECTED, "Activo en Discord")
                     self._send_rpc_update()
                 except RECONNECT_EXCEPTIONS:
+                    with self._lock:
+                        if new_rpc is not None and self._connecting_rpc is new_rpc:
+                            self._connecting_rpc = None
+                    if new_rpc is not None:
+                        self._safe_close_target(new_rpc)
                     self._safe_close_rpc()
+                    if not self._running:
+                        break
                     self._notify_state(RPCState.DISCONNECTED, "Esperando a Discord...")
                     # Interleaved wait on command queue during reconnect backoff
                     try:
@@ -424,15 +586,26 @@ class DiscordRPCManager:
                         self._process_command(cmd, payload)
                     except queue.Empty:
                         pass
+                    if not self._running:
+                        break
                     continue
-                except Exception as e:
+                except (Exception, asyncio.CancelledError) as e:
+                    with self._lock:
+                        if new_rpc is not None and self._connecting_rpc is new_rpc:
+                            self._connecting_rpc = None
+                    if new_rpc is not None:
+                        self._safe_close_target(new_rpc)
                     self._safe_close_rpc()
+                    if not self._running:
+                        break
                     self._notify_state(RPCState.DISCONNECTED, f"Error: {e}")
                     try:
                         cmd, payload = self._cmd_queue.get(timeout=3.5)
                         self._process_command(cmd, payload)
                     except queue.Empty:
                         pass
+                    if not self._running:
+                        break
                     continue
 
             # 2. Command Processing with Coalescing
@@ -444,7 +617,10 @@ class DiscordRPCManager:
                         try:
                             next_cmd, next_payload = self._cmd_queue.get_nowait()
                             if next_cmd == "CONFIG_CHANGE":
-                                payload.update(next_payload)
+                                if isinstance(payload, dict) and isinstance(next_payload, dict):
+                                    payload.update(next_payload)
+                                elif isinstance(next_payload, dict):
+                                    payload = dict(next_payload)
                             else:
                                 self._process_command(cmd, payload)
                                 cmd, payload = next_cmd, next_payload
@@ -582,6 +758,12 @@ class DiscordRPCManager:
             if active and rpc:
                 self._send_rpc_update()
             self._notify_match_reset(now)
+        elif cmd == "RECONNECT":
+            self._safe_close_rpc()
+            with self._lock:
+                active = self.is_active
+            if active:
+                self._notify_state(RPCState.CONNECTING, "Reconectando a Discord...")
 
     def _send_rpc_update(self) -> None:
         """Sends the presence payload over the Discord IPC socket."""
@@ -599,18 +781,24 @@ class DiscordRPCManager:
             game_id = getattr(self, "selected_game_id", "lol")
             custom_name = getattr(self, "custom_game_name", "")
             custom_icon = getattr(self, "custom_game_icon", "")
+            buttons = getattr(self, "buttons", [])
 
         if not rpc or not active:
             return
 
+        valid_buttons = sanitize_buttons(buttons)
+
         try:
             if game_id == "lol":
                 if mode == "oficial":
-                    rpc.update(
-                        start=start_time,
-                        large_image=LOL_LOGO_URL,
-                        large_text="League of Legends",
-                    )
+                    kwargs: Dict[str, Any] = {
+                        "start": start_time,
+                        "large_image": LOL_LOGO_URL,
+                        "large_text": "League of Legends",
+                    }
+                    if valid_buttons is not None:
+                        kwargs["buttons"] = valid_buttons
+                    rpc.update(**kwargs)
                 else:
                     kwargs: Dict[str, Any] = {
                         "details": details or "En partida",
@@ -630,6 +818,9 @@ class DiscordRPCManager:
                     elif rank_text:
                         kwargs["small_text"] = rank_text
 
+                    if valid_buttons is not None:
+                        kwargs["buttons"] = valid_buttons
+
                     rpc.update(**kwargs)
             else:
                 game_info = TOP_GAMES.get(game_id, TOP_GAMES.get("custom", {}))
@@ -643,6 +834,8 @@ class DiscordRPCManager:
                 if g_icon:
                     kwargs["large_image"] = g_icon
                     kwargs["large_text"] = g_name
+                if valid_buttons is not None:
+                    kwargs["buttons"] = valid_buttons
                 rpc.update(**kwargs)
         except (BrokenPipeError, InvalidPipe, PipeClosed, ConnectionResetError, OSError, Exception) as e:
             # Discord closed, crashed, or pipe severed
