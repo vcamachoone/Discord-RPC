@@ -1,401 +1,341 @@
-# League of Legends Discord RPC para macOS 🎮✨
+# Discord RPC para macOS
 
-[![macOS](https://img.shields.io/badge/Platform-macOS%2012%2B-blue?logo=apple)](https://www.apple.com/macos/)
+[![Platform macOS](https://img.shields.io/badge/Platform-macOS%2012%2B-blue?logo=apple)](https://www.apple.com/macos/)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-brightgreen?logo=python)](https://www.python.org/)
 [![PyObjC](https://img.shields.io/badge/UI-PyObjC%20Cocoa%20%2B%20WebKit-orange)](https://pyobjc.readthedocs.io/)
 [![Discord IPC](https://img.shields.io/badge/Discord-Rich%20Presence-5865F2?logo=discord)](https://discord.com/)
-[![Tests](https://img.shields.io/badge/Tests-149%2F149%20Passing%20(100%25)-success)](#-suite-de-pruebas)
+[![Tests](https://img.shields.io/badge/Tests-176%2F176%20Passing%20(100%25)-success)](#suite-de-pruebas-automatizadas)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-success)]()
 
-Aplicación nativa para la barra de menús de macOS (**Menubar Agent / `LSUIElement`**) que sincroniza en tiempo real tu presencia enriquecida (**Rich Presence**) de **League of Legends** en Discord. Diseñada con una estética moderna **Liquid Glass (Dark Aqua HUD)**, buscador de 173 campeones con avatares en tiempo real y arquitectura concurrente de sockets sin bloqueos en la interfaz.
+<p align="center">
+  <img src="assets/app_screenshot.png" alt="Discord RPC macOS Menubar UI" width="460" />
+</p>
+
+Aplicación nativa para la barra de menús de macOS (`LSUIElement` / Menubar Accessory) que sincroniza en tiempo real tu presencia enriquecida (Rich Presence) de League of Legends y otros títulos en Discord. Diseñada con una interfaz flotante nativa (`NSPopover`), tema oscuro traslúcido, buscador de 173 campeones con avatares en tiempo real, botones de perfil interactivos y arquitectura de hilos concurrente con reconexión automática.
 
 ---
 
-## 📑 Tabla de Contenidos
+## Tabla de Contenidos
 
-- [Características Principales](#-características-principales)
-- [Requisitos Previos](#-requisitos-previos)
-- [Instalación Paso a Paso (Desde Cero)](#-instalación-paso-a-paso-desde-cero)
-- [Guía Completa de Uso](#-guía-completa-de-uso)
-  - [1. Dónde encontrar la aplicación](#1-dónde-encontrar-la-aplicación)
-  - [2. Estados del icono en la barra de menú](#2-estados-del-icono-en-la-barra-de-menú)
-  - [3. Selector de Modo (Oficial vs Detallado)](#3-selector-de-modo-oficial-vs-detallado)
-  - [4. Buscador interactivo de 173 Campeones](#4-buscador-interactivo-de-173-campeones)
-  - [5. Modos de Juego y Modo Personalizado](#5-modos-de-juego-y-modo-personalizado)
-  - [6. Rangos y Emblemas Clasificatorios](#6-rangos-y-emblemas-clasificatorios)
-  - [7. Interruptores y Automatización](#7-interruptores-y-automatización)
-  - [8. Pausar y Reanudar Presencia](#8-pausar-y-reanudar-presencia)
-  - [9. Selector de los 10 Juegos Más Jugados y Client ID (⚙️)](#9-selector-de-los-10-juegos-más-jugados-y-client-id-️)
-- [Arranque Automático con macOS](#-arranque-automático-con-macos)
-- [Arquitectura del Proyecto](#-arquitectura-del-proyecto)
-- [Suite de Pruebas Automatizadas](#-suite-de-pruebas-automatizadas)
-- [Resolución de Problemas Frecuentes (FAQ)](#-resolución-de-problemas-frecuentes-faq)
-- [Licencia](#-licencia)
-
----
-
-## 🌟 Características Principales
-
-- **Diseño Liquid Glass Unificado**: Ventana flotante nativa (`NSPopover`) sin bordes dobles, con transparencia translúcida macOS HUD Window y reflejos sutiles.
-- **Icono Reactivo en la Barra de Menús**: Muestra un punto azul dinámico cuando estás conectado y sincronizando presencia en Discord.
-- **Buscador de 173 Campeones con Avatares en Vivo**: Búsqueda instantánea con fotos oficiales en alta resolución desde la CDN de Riot Games Data Dragon, con control por teclado (`↑`, `↓`, `Enter`) o ratón.
-- **Modos de Juego Canónicos**: Soporte para Clasificatoria Solo/Dúo, Flex, Normal, ARAM, Arena 2v2v2v2, Clash, Swiftplay, o entrada personalizada de texto libre.
-- **Rangos Oficiales de LoL**: Soporte desde Hierro hasta Challenger, con divisiones romanas y supresión automática en rangos Apex (*Master, Grandmaster, Challenger*).
-- **Arranque Silencioso**: No muestra icono temporal de Python en el Dock (`LSUIElement = true`) e inicia automáticamente al encender el Mac.
-- **Concurrencia Resiliente**: Modelo de Actor protegido contra carreras de hilos (`threading.Lock`) con reconexión automática si Discord se cierra o se abre en segundo plano.
+- [Características Principales](#características-principales)
+- [Requisitos del Sistema](#requisitos-del-sistema)
+- [Instalación Paso a Paso](#instalación-paso-a-paso)
+- [Guía de Uso](#guía-de-uso)
+  - [Ubicación en la barra de menús](#ubicación-en-la-barra-de-menús)
+  - [Estados del icono](#estados-del-icono)
+  - [Selector de modo: Oficial vs Detallado](#selector-de-modo-oficial-vs-detallado)
+  - [Buscador de campeones](#buscador-de-campeones)
+  - [Modos de juego y texto personalizado](#modos-de-juego-y-texto-personalizado)
+  - [Rangos competitivos](#rangos-competitivos)
+  - [Botones interactivos de perfil](#botones-interactivos-de-perfil)
+  - [Temporizador y arranque con el sistema](#temporizador-y-arranque-con-el-sistema)
+  - [Pausar, reanudar y control de presencia](#pausar-reanudar-y-control-de-presencia)
+  - [Ajustes de Client ID y presets de juegos](#ajustes-de-client-id-y-presets-de-juegos)
+  - [Control del ciclo de vida y salida](#control-del-ciclo-de-vida-y-salida)
+- [Instalador DMG y Distribución Portátil](#instalador-dmg-y-distribución-portátil)
+- [Arranque Automático con macOS](#arranque-automático-con-macos)
+- [Arquitectura del Proyecto](#arquitectura-del-proyecto)
+- [Suite de Pruebas Automatizadas](#suite-de-pruebas-automatizadas)
+- [Preguntas Frecuentes](#preguntas-frecuentes)
+- [Licencia](#licencia)
 
 ---
 
-## 📋 Requisitos Previos
+## Características Principales
 
-Antes de instalar, asegúrate de contar con:
-
-1. **macOS**: Versión 12.0 (Monterey), 13.0 (Ventura), 14.0 (Sonoma), 15.0 (Sequoia) o superior.
-2. **Procesador**: Compatible de forma nativa con **Apple Silicon** (M1, M2, M3, M4) y procesadores **Intel**.
-3. **Python 3.9 o superior**: Puedes verificar si lo tienes con:
-   ```bash
-   python3 --version
-   ```
-   *(Si no lo tienes instalado, puedes instalarlo fácilmente con `brew install python` o desde [python.org](https://www.python.org/downloads/mac-osx/))*.
-4. **Discord**: La aplicación oficial de escritorio de Discord abierta en tu Mac.
+- **Interfaz flotante Cocoa (NSPopover)**: Ventana anclada directamente al icono de estado, con soporte de desenfoque de fondo y diseño oscuro adaptativo.
+- **Icono de estado reactivo**: Indicador gráfico en la barra de menú con tres estados claramente diferenciados (Normal, Activo con punto indicador y Pausado).
+- **Catálogo de 173 campeones**: Búsqueda instantánea con avatares oficiales en alta resolución desde el CDN de Riot Games Data Dragon, con navegación por teclado y ratón.
+- **Rangos y modos canónicos**: Modos de juego oficiales (Solo/Dúo, Flexible, ARAM, Arena, Normal, Clash) y rangos competitivos con supresión automática de divisiones en rangos Apex (Master, Grandmaster, Challenger).
+- **Botones de perfil en Discord**: Configuración de hasta dos botones interactivos con enlace directo (ej. OP.GG, Twitch o servidores comunitarios).
+- **Control de instancia única**: Mecanismo basado en sockets de dominio Unix que impide procesos duplicados y enfoca la ventana existente si el usuario ejecuta la aplicación nuevamente.
+- **Gestión de eventos del sistema**: Reconexión automática tras la apertura de Discord o al reanudar el sistema tras suspensión.
+- **Concurrencia protegida**: Modelo de hilos con bloqueos de exclusión mutua (`threading.Lock`) para evitar condiciones de carrera o bloqueos en el bucle principal de interfaz de macOS.
 
 ---
 
-## 🚀 Instalación Paso a Paso (Desde Cero)
+## Requisitos del Sistema
 
-Sigue estos 4 pasos sencillos en tu terminal para dejar la app instalada en tu sistema:
+- **Sistema Operativo**: macOS 12.0 (Monterey), 13.0 (Ventura), 14.0 (Sonoma), 15.0 (Sequoia) o superior.
+- **Arquitectura**: Compatible con Apple Silicon (M1/M2/M3/M4) y procesadores Intel x86_64.
+- **Python**: Python 3.9 o superior.
+- **Discord**: Cliente oficial de escritorio de Discord instalado y en ejecución en el equipo.
 
-### Paso 1: Clonar el repositorio
-Abre la aplicación **Terminal** en tu Mac y clona este proyecto:
+---
+
+## Instalación Paso a Paso
+
+### 1. Clonar el repositorio
+
 ```bash
 git clone https://github.com/vcamachoone/Discord-RPC.git
 cd Discord-RPC
 ```
 
-### Paso 2: Crear el entorno virtual de Python
-Crea un entorno aislado para no interferir con las librerías del sistema:
+### 2. Configurar el entorno virtual
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-### Paso 3: Instalar las dependencias
-Instala los módulos necesarios (`pyobjc`, `pypresence`, `Pillow`, etc.):
+### 3. Instalar dependencias
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### Paso 4: Sincronizar y compilar el Bundle de macOS
-Ejecuta el sincronizador para empaquetar la aplicación directamente en tu carpeta de `/Applications`:
+### 4. Sincronizar y generar el bundle de macOS
+
 ```bash
 python sync_bundle.py
 ```
-> ✅ **Listo**: Esto creará el ejecutable oficial `/Applications/League of Legends RPC.app` con su icono nativo y configuración de menubar.
+
+El script configurará e instalará la aplicación en `/Applications/League of Legends RPC.app` con su estructura de bundle, ejecutables y metadatos (`Info.plist`).
 
 ---
 
-## 🎮 Guía Completa de Uso
+## Guía de Uso
 
-### 1. Dónde encontrar la aplicación
-Una vez abierta, la aplicación **no aparece en el Dock** para no estorbar. Vive directamente en la **barra superior de menús** de tu Mac (al lado del reloj, Wi-Fi y batería), representada por el icono oficial de Discord.
+### Ubicación en la barra de menús
 
-Para abrirla por primera vez:
-- Búscala en **Spotlight** (`Cmd + Espacio`) escribiendo: `League of Legends RPC`
-- O ábrela desde la terminal:
+La aplicación se ejecuta como un agente de barra de menús (`LSUIElement`), por lo que no ocupa espacio en el Dock ni en el selector de aplicaciones (`Cmd+Tab`). Su presencia se visualiza exclusivamente en la barra superior del sistema.
+
+Para abrirla:
+- Desde **Spotlight**: presiona `Cmd + Espacio`, escribe `League of Legends RPC` y pulsa `Enter`.
+- O desde la terminal:
   ```bash
   open -a "/Applications/League of Legends RPC.app"
   ```
 
 ---
 
-### 2. Estados del icono en la barra de menú
+### Estados del icono
 
-El icono en la parte superior te indica el estado de tu conexión en todo momento:
+El icono en la barra de menú refleja el estado de la conexión en tiempo real:
 
 | Icono | Estado | Descripción |
 | :---: | :---: | :--- |
-| ![Icono Normal](assets/menubar_normal@2x.png) | **En espera / Normal** | Discord está abierto pero la presencia está en pausa o esperando conexión. |
-| ![Icono Activo](assets/menubar_active@2x.png) | **Activo (Punto Azul)** | **Conectado**. Tu perfil de Discord está mostrando en vivo tu partida de League of Legends. |
-| ![Icono Pausado](assets/menubar_paused@2x.png) | **Pausado / Desconectado** | Presencia detenida manualmente o Discord está cerrado. |
+| ![Icono Normal](assets/menubar_normal@2x.png) | **En espera / Normal** | Discord está abierto pero la sincronización de presencia está en pausa o conectando. |
+| ![Icono Activo](assets/menubar_active@2x.png) | **Activo** | Conectado activamente. Discord muestra la presencia enriquecida en tu perfil. |
+| ![Icono Pausado](assets/menubar_paused@2x.png) | **Pausado** | Presencia detenida manualmente por el usuario o cliente de Discord no detectado. |
 
 ---
 
-### 3. Selector de Modo (Oficial vs Detallado)
+### Selector de modo: Oficial vs Detallado
 
-Al hacer un clic en el icono de la barra superior, se despliega la ventana flotante **Liquid Glass**. Puedes elegir entre dos modos:
+Al hacer clic izquierdo en el icono se despliega el popover:
 
-1. **Modo Oficial** *(Por defecto)*:
-   - Presencia minimalista y limpia.
-   - Muestra el logotipo de League of Legends, el nombre del juego y el cronómetro de tiempo transcurrido.
-   - Ideal si solo quieres mostrar que estás jugando sin dar más detalles.
-
+1. **Modo Oficial**:
+   - Presencia minimalista.
+   - Muestra el nombre oficial del juego, logotipo y temporizador transcurrido.
 2. **Modo Detallado**:
-   - Despliega la configuración completa con el campeón actual, rango y modo de juego.
-   - Al seleccionarlo (o al hacer clic en el engranaje ⚙️ de la esquina superior derecha), se abre el panel de personalización avanzada.
+   - Despliega la personalización de campeón, rango competitivo y modo de juego.
+   - Accesible también mediante el botón de ajustes en la esquina superior derecha del popover.
 
 ---
 
-### 4. Buscador interactivo de 173 Campeones
+### Buscador de campeones
 
-En el **Modo Detallado**, encontrarás el buscador inteligente de campeones:
-
-- **Escribe para filtrar**: Empieza a escribir el nombre de cualquier campeón (ejemplo: `Ahri`, `Yasuo`, `Jinx`, `Aatrox`, `Kai'Sa`).
-- **Avatares en tiempo real**: Al escribir, se despliega una lista con las fotos oficiales en alta resolución traídas directamente de la CDN de **Riot Games Data Dragon**.
-- **Control total por teclado**:
-  - `↓` (Flecha abajo) y `↑` (Flecha arriba): Navega fluidamente por la lista de resultados.
-  - `Enter`: Selecciona el campeón resaltado y actualiza tu presencia de inmediato.
-  - `Escape`: Cierra el menú desplegable.
-- **Control por ratón**: Haz clic directamente sobre la foto o el nombre de cualquier campeón para seleccionarlo.
-- **Normalización inteligente**: Soporta nombres especiales y apodos comunes (ejemplo: escribir `wukong` resuelve automáticamente a `MonkeyKing`, `chogath` a `Chogath`, `kaisa` a `Kaisa`).
+En el Modo Detallado:
+- **Filtrado dinámico**: Escribe el nombre de cualquier campeón (ej. `Ahri`, `Yasuo`, `Jinx`, `Aatrox`, `Kai'Sa`).
+- **Navegación por teclado**:
+  - `Flecha Abajo` y `Flecha Arriba`: Desplazamiento por los resultados.
+  - `Enter`: Selecciona el elemento resaltado y actualiza la presencia de inmediato.
+  - `Escape`: Cierra el menú desplegable de sugerencias.
+- **Normalización**: Soporta nombres compuestos y alias del API de Riot (ej. `wukong` -> `MonkeyKing`, `chogath` -> `Chogath`).
 
 ---
 
-### 5. Modos de Juego y Modo Personalizado
+### Modos de juego y texto personalizado
 
-Puedes indicar exactamente qué tipo de partida estás jugando:
-
-- **Modos oficiales incluidos en la lista**:
-  - 🏆 Clasificatoria Solo/Dúo
-  - 👥 Clasificatoria Flexible
-  - ⚔️ Partida Normal (Reclutamiento)
-  - 🎯 Partida Rápida (Swiftplay)
-  - ❄️ ARAM (Abismo de los Lamentos)
-  - 🥊 Arena (2v2v2v2)
-  - 🛡️ Torneo Clash
-  - 🤖 Cooperativo vs IA
-  - 🎯 Herramienta de Práctica
-- **Modo Personalizado**:
-  - Selecciona la opción `✏️ Personalizado (Escribir texto libre)...`.
-  - Aparecerá una caja de texto donde puedes escribir lo que quieras (ejemplo: `Torneo Universitario`, `1v1 en el Abismo`, `Scouting scrims`).
+- **Modos oficiales**:
+  - Clasificatoria Solo/Dúo
+  - Clasificatoria Flexible
+  - Partida Normal (Reclutamiento)
+  - Partida Rápida (Swiftplay)
+  - ARAM
+  - Arena (2v2v2v2)
+  - Torneo Clash
+  - Cooperativo vs IA
+  - Herramienta de Práctica
+- **Modo personalizado**: Selecciona la opción `Personalizado` para ingresar texto libre (ej. `Torneo Interno`, `Entrenamiento 1v1`).
 
 ---
 
-### 6. Rangos y Emblemas Clasificatorios
+### Rangos competitivos
 
-Muestra tu división competitiva en Discord:
-
-- **Rangos soportados**: Hierro, Bronce, Plata, Oro, Platino, Esmeralda, Diamante, Maestro, Gran Maestro, Challenger y Unranked.
+- **Niveles disponibles**: Hierro, Bronce, Plata, Oro, Platino, Esmeralda, Diamante, Maestro, Gran Maestro, Challenger y Sin Rango (Unranked).
 - **Divisiones**: I, II, III y IV.
-- **Regla Apex inteligente**: Si seleccionas *Maestro*, *Gran Maestro* o *Challenger*, el selector de divisiones se oculta automáticamente, respetando el formato competitivo oficial de Riot Games (no existe "Challenger II").
+- **Regla Apex**: En Maestro, Gran Maestro y Challenger, la selección de división se oculta de forma automática conforme al estándar competitivo oficial.
 
 ---
 
-### 7. Interruptores y Automatización
+### Botones interactivos de perfil
 
-En la sección intermedia de la ventana flotante dispones de dos interruptores interactivos estilo iOS:
-
-1. **Reiniciar partida (automáticamente cada 20–30 min)**:
-   - Al tenerlo activado, la aplicación reinicia el contador de tiempo de la partida en intervalos de 20 a 30 minutos de forma aleatoria y realista.
-   - Evita que tu perfil muestre partidas irreales de "Jugando hace 7 horas".
-2. **Iniciar automáticamente con macOS (Auto-run)**:
-   - Al activarlo, registra un servicio de usuario (`LaunchAgent`) en tu sistema.
-   - Cada vez que enciendas o reinicies tu Mac, la aplicación arrancará sola en la barra superior en segundo plano, sin abrir terminales ni ventanas molestas.
+Desde el panel de configuración (icono de engranaje) puedes definir hasta dos botones interactivos para tu perfil de Discord:
+- **Botón 1**: Etiqueta (ej. `Ver OP.GG`) y URL de destino (`https://...`).
+- **Botón 2**: Etiqueta (ej. `Canal de Twitch`) y URL de destino (`https://...`).
+- Las URLs son validadas y sanitizadas automáticamente (forzando protocolo HTTPS y límites de longitud).
 
 ---
 
-### 8. Pausar y Reanudar Presencia
+### Temporizador y arranque con el sistema
 
-En la parte inferior de la ventana tienes el botón principal de control:
-
-- **⏹ DETENER EN DISCORD**: Pausa la presencia y retira la actividad de tu perfil en Discord.
-- **▶ INICIAR PRESENCIA**: Vuelve a conectar con Discord y publica tu presencia al instante.
+- **Reiniciar partida (automáticamente cada 20–30 min)**: Restablece de forma periódica el tiempo transcurrido para mantener intervalos de duración realistas.
+- **Iniciar automáticamente con macOS**: Configura un agente de usuario (`LaunchAgent`) para que el servicio inicie silenciosamente al iniciar sesión en el Mac.
 
 ---
 
-### 9. Selector de los 10 Juegos Más Jugados y Client ID (⚙️)
+### Pausar, reanudar y control de presencia
 
-Al hacer clic en el botón de engranaje (**⚙️**) en la esquina superior derecha, se abre la pantalla dedicada de **Configuración & Juegos**:
-
-1. **Top 10 Presets Oficiales**:
-   - Puedes cambiar de juego al instante seleccionándolo en el menú desplegable:
-     - 🏆 **League of Legends** (Riot Games)
-     - 🎯 **VALORANT** (Riot Games)
-     - 🔫 **Counter-Strike 2** (Valve)
-     - ⛏️ **Minecraft** (Mojang)
-     - 🪂 **Fortnite** (Epic Games)
-     - 🚗 **Grand Theft Auto V** (Rockstar Games)
-     - ⚡ **Apex Legends** (Respawn / EA)
-     - 🛡️ **Overwatch 2** (Blizzard Entertainment)
-     - ⚔️ **Dota 2** (Valve)
-     - 🚀 **Rocket League** (Psyonix)
-     - ✏️ **Personalizado (Custom)**: Para escribir un Client ID propio y nombre de juego libre.
-2. **Auto-rellenado Inteligente**:
-   - Al seleccionar cualquier juego, la aplicación auto-rellena automáticamente el **Discord Application Client ID oficial**, el icono del juego y la duración estimada.
-3. **Restauración con un solo clic**:
-   - Si modificas el Client ID y quieres volver al valor oficial de League of Legends o del juego elegido, haz clic en **"Restaurar Oficial"**.
-4. **Guardado en Caliente**:
-   - Pulsa **💾 GUARDAR Y RECONECTAR** para aplicar el cambio inmediatamente sin tener que cerrar ni reiniciar la aplicación.
+- **Detener en Discord**: Retira la actividad de tu perfil sin cerrar la aplicación.
+- **Iniciar Presencia**: Reanuda la comunicación con el socket local y publica los datos actualizados.
 
 ---
 
-## 🔄 Arranque Automático con macOS
+### Ajustes de Client ID y presets de juegos
 
-Si activas el interruptor **"Iniciar automáticamente con macOS"**, la aplicación gestiona de forma transparente el siguiente archivo de configuración del sistema:
+El panel de configuración permite alternar entre diversos títulos predefinidos o configurar identificadores personalizados:
+- League of Legends (Riot Games)
+- VALORANT (Riot Games)
+- Counter-Strike 2 (Valve)
+- Minecraft (Mojang)
+- Fortnite (Epic Games)
+- Grand Theft Auto V (Rockstar Games)
+- Apex Legends (Respawn / EA)
+- Overwatch 2 (Blizzard)
+- Dota 2 (Valve)
+- Rocket League (Psyonix)
+- Personalizado: Permite ingresar un Application Client ID propio generado en el Discord Developer Portal.
 
+---
+
+### Control del ciclo de vida y salida
+
+Puedes finalizar la ejecución de la aplicación mediante cualquiera de los siguientes métodos:
+1. **Desde el Popover**: Haz clic en el botón **Salir de la aplicación** ubicado al pie de la ventana.
+2. **Desde la barra de menú**: Haz **clic derecho** sobre el icono de la barra de menú para abrir el menú contextual nativo y selecciona **Salir de la app (Cmd+Q)**.
+3. **Desde la terminal**: Ejecuta `./stop.sh` dentro del directorio del proyecto.
+
+---
+
+## Instalador DMG y Distribución Portátil
+
+El proyecto cuenta con un generador de paquetes DMG comprimidos (`UDZO`) para distribuir la aplicación sin requerir configuración manual de dependencias:
+
+```bash
+python build_dmg.py
 ```
+
+### Características del paquete:
+- **Autónomo**: Empaqueta dependencias de Python dentro del bundle en `Contents/Resources/site-packages`.
+- **Lanzador universal**: Resuelve dinámicamente el intérprete de Python del sistema sin rutas absolutas de usuario.
+- **Fondo de instalación**: Arte gráfico para arrastrar directamente la aplicación a `/Applications`.
+- **Verificación criptográfica**: Genera un archivo `.sha256` complementario para verificar la integridad del instalador.
+
+El archivo resultante se genera en:
+```text
+dist/League_of_Legends_RPC_Installer.dmg
+```
+
+---
+
+## Arranque Automático con macOS
+
+Al activar la opción en la interfaz, se crea el servicio de usuario en:
+```text
 ~/Library/LaunchAgents/com.victormanuel.lolrpc.plist
 ```
 
-### Comandos útiles para verificar el servicio:
-- **Verificar que el servicio está cargado**:
-  ```bash
-  launchctl list | grep lolrpc
-  ```
-- **Detener el autoarranque manualmente**:
-  ```bash
-  launchctl unload ~/Library/LaunchAgents/com.victormanuel.lolrpc.plist
-  ```
-- **Volver a cargar el autoarranque**:
-  ```bash
-  launchctl load ~/Library/LaunchAgents/com.victormanuel.lolrpc.plist
-  ```
-
----
-
-## 🏛️ Arquitectura del Proyecto
-
-```
-discord-rpc/
-├── /Applications/League of Legends RPC.app   # Aplicación empaquetada e instalada en macOS
-├── app_gui.py              # Controlador principal de la aplicación y bucle de eventos Cocoa
-├── popover_ui.py           # Ventana flotante NSPopover nativa y puente WebKit (PyObjC)
-├── liquid_html.py          # Interfaz de usuario Liquid Glass en HTML5/CSS3/JavaScript
-├── discord_rpc_manager.py  # Actor concurrente de comunicación IPC con Discord (pypresence)
-├── status_item.py          # Gestor reactivo del icono de la barra de menús (NSStatusItem)
-├── lol_champions.py        # Catálogo de 173 campeones con resolución de CDN Data Dragon
-├── lol_ranks.py            # Lógica y validación de rangos, divisiones y emblemas de LoL
-├── sync_bundle.py          # Utilidad para compilar y sincronizar el bundle en /Applications
-├── requirements.txt        # Dependencias de Python del proyecto
-├── launcher.sh             # Script de lanzamiento con variables de entorno de macOS
-├── start.sh / stop.sh      # Scripts rápidos para iniciar o matar el proceso en segundo plano
-├── assets/                 # Iconos de barra de menús en resoluciones 1x y @2x Retina
-└── tests/                  # Suite integral de pruebas automatizadas (149 pruebas)
-    ├── test_tier1_features.py       # Cobertura funcional (60 tests)
-    ├── test_tier2_boundaries.py     # Casos límite y esquinas (60 tests)
-    ├── test_tier3_interactions.py   # Interacciones cruzadas entre módulos (14 tests)
-    ├── test_tier4_scenarios.py      # Escenarios de usuario real en macOS (5 tests)
-    ├── test_adversarial_stress.py   # Estrés adversarial y reconexión de sockets (10 tests)
-    └── run_tests.py                 # Ejecutor maestro de pruebas
-```
-
----
-
-## 🧪 Suite de Pruebas Automatizadas
-
-El proyecto incluye una suite de pruebas exhaustiva con **149 pruebas automatizadas** divididas en 5 niveles de rigor (Tiers 1 al 5):
-
-Para ejecutar la verificación completa:
+### Comandos de gestión:
 ```bash
-venv/bin/python tests/run_tests.py
+# Comprobar estado del servicio
+launchctl list | grep lolrpc
+
+# Desactivar servicio
+launchctl unload ~/Library/LaunchAgents/com.victormanuel.lolrpc.plist
+
+# Reactivar servicio
+launchctl load ~/Library/LaunchAgents/com.victormanuel.lolrpc.plist
 ```
 
-### Resumen de auditoría de pruebas:
+---
+
+## Arquitectura del Proyecto
+
+```text
+discord-rpc/
+├── /Applications/League of Legends RPC.app   # Bundle de aplicación instalado en macOS
+├── app_gui.py              # Inicialización, bucle Cocoa (AppKit) y ciclo de vida
+├── popover_ui.py           # Controlador NSPopover nativo y puente JavaScript/WebKit
+├── liquid_html.py          # Estructura HTML5, estilos CSS3 y lógica de cliente
+├── discord_rpc_manager.py  # Gestor de sockets IPC (pypresence) con reconexión
+├── status_item.py          # Manejo de NSStatusItem y menú contextual
+├── lol_champions.py        # Catálogo de campeones y resolución CDN
+├── lol_ranks.py            # Validación de divisiones y rangos competitivos
+├── sync_bundle.py          # Generador y sincronizador de bundle .app
+├── build_dmg.py            # Empaquetador automatizado de instalador .dmg
+├── launcher.sh             # Script de entrada de aplicación en bundle
+├── requirements.txt        # Especificación de dependencias de Python
+├── assets/                 # Recursos gráficos e imágenes de la interfaz
+└── tests/                  # Suite completa de pruebas unitarias y de integración
 ```
+
+---
+
+## Suite de Pruebas Automatizadas
+
+El proyecto incluye 176 pruebas automatizadas organizadas en 6 niveles de verificación:
+
+```bash
+python tests/run_tests.py
+```
+
+### Resultados de verificación:
+
+```text
 ==============================================================================
 FINAL TEST SUITE SUMMARY
 ==============================================================================
   Tier Name                                Total    Pass    Skip    Fail     Time
   -------------------------------------- ------- ------- ------- ------- --------
-  Tier 1: Feature Coverage                    60      60       0       0   1.495s
-  Tier 2: Boundary & Corner Cases             60      60       0       0   0.834s
-  Tier 3: Cross-Feature Interactions          14      14       0       0   0.063s
-  Tier 4: Real-World Scenarios                 5       5       0       0   0.524s
-  Tier 5: Adversarial Stress & Faults         10      10       0       0  13.884s
+  Tier 1: Feature Coverage                    60      60       0       0   0.878s
+  Tier 2: Boundary & Corner Cases             60      60       0       0   0.812s
+  Tier 3: Cross-Feature Interactions          14      14       0       0   0.069s
+  Tier 4: Real-World Scenarios                 5       5       0       0   0.164s
+  Tier 5: Adversarial Stress & Faults         10      10       0       0  13.872s
+  Tier 6: Production Acceptance & System      27      27       0       0   0.995s
   -------------------------------------- ------- ------- ------- ------- --------
-  TOTAL                                      149     149       0       0  16.800s
+  TOTAL                                      176     176       0       0  16.789s
 ==============================================================================
-✓ ALL EXECUTED TESTS PASSED CLEANLY (100% SUCCESS)
+ALL EXECUTED TESTS PASSED CLEANLY (100% SUCCESS)
 ```
 
 ---
 
-## 10. 📦 Instalador DMG (.dmg) y Distribución Portátil
+## Preguntas Frecuentes
 
-El proyecto incluye un generador automatizado de instaladores de disco para macOS (**`.dmg`**), diseñado para compartir la aplicación con otros usuarios o subirla como artefacto descargable en **GitHub Releases**.
+### 1. ¿Qué sucede si la aplicación inicia antes de abrir Discord?
+El administrador de presencia mantiene un ciclo de reconexión pasivo. En cuanto el proceso de Discord inicia, la conexión se establece automáticamente y el icono de la barra de menú cambia al estado activo.
 
-### 🌟 Ventajas del Instalador DMG:
-1. **100% Autónomo (Zero Setup):** Incluye las dependencias necesarias (`pypresence`, `PyObjC`, `Pillow`, `rumps`) integradas dentro del propio bundle en `Contents/Resources/site-packages`. Cualquier usuario con macOS puede arrastrar la app y usarla sin abrir la terminal ni instalar `pip`.
-2. **Lanzador Universal macOS:** Detecta automáticamente el runtime de Python 3 del sistema (`/usr/bin/python3`, Homebrew o virtualenv) sin dependencias fijas de rutas de usuario.
-3. **Fondo Retina Personalizado:** Ventana de instalación oscura con estética Discord & Hextech, guías visuales y flecha de arrastre directo a `/Applications`.
-4. **Script de 1-Clic (`⚡️ Instalación Rápida.command`):** Copia la aplicación a `/Applications`, elimina de forma automática la restricción de cuarentena de Apple Gatekeeper (`xattr -dr com.apple.quarantine`) y ofrece abrir la aplicación inmediatamente.
+### 2. ¿La aplicación almacena contraseñas o tokens de acceso de Discord?
+No. La comunicación se realiza exclusivamente a través del socket IPC local del sistema operativo (`/tmp/discord-ipc-0`). No se solicitan, almacenan ni transmiten credenciales de usuario.
 
-### 🔨 Cómo Generar el Instalador DMG:
-En la terminal del proyecto, ejecuta:
-```bash
-python build_dmg.py
-```
+### 3. ¿El icono no aparece en la barra superior?
+En pantallas de computadoras portátiles con muesca (notch), si existen muchos elementos en la barra de menú, macOS puede ocultar iconos auxiliares. Se recomienda cerrar iconos secundarios o utilizar herramientas de gestión de barra de estado.
 
-El script realizará automáticamente:
-1. Preparación del bundle `League of Legends RPC.app` con iconos, módulos y librerías portátiles.
-2. Renderizado de la gráfica de fondo Retina (`dist/dmg_background.png`).
-3. Creación del enlace simbólico a la carpeta de `/Applications`.
-4. Generación del comando de instalación rápida y guía en texto plano.
-5. Compresión optimizada con `hdiutil` (formato `UDZO`, nivel 9 de compresión).
-6. Verificación de integridad y cálculo de la suma criptográfica **SHA-256**.
-
-El archivo resultante se generará en:
-```text
-dist/League_of_Legends_RPC_Installer.dmg  (~10.8 MB)
-```
-
-### 🚀 Publicar en GitHub Releases:
-Para ofrecer la descarga directa a otros usuarios en tu repositorio de GitHub:
-1. Ve a tu repositorio: `https://github.com/vcamachoone/Discord-RPC/releases`.
-2. Haz clic en **Draft a new release** (Crear nueva versión).
-3. Asigna una etiqueta de versión (ejemplo: `v1.0.0`) y un título (ejemplo: *League of Legends RPC v1.0.0 - macOS Installer*).
-4. Arrastra el archivo `dist/League_of_Legends_RPC_Installer.dmg` al recuadro de adjuntos (**Attach binaries by dropping them here**).
-5. Haz clic en **Publish release**. ¡Cualquier persona podrá descargar el instalador DMG con un solo clic!
-
----
-
-## ❓ Resolución de Problemas Frecuentes (FAQ)
-
-### 1. ¿Qué pasa si abro la app antes que Discord?
-No hay problema. El gestor de RPC cuenta con un bucle de reconexión automático. En cuanto abras Discord en tu Mac, la aplicación detectará el socket local y se conectará en cuestión de segundos, cambiando el icono de la barra al estado activo (punto azul).
-
-### 2. ¿No veo el icono en la barra de menú superior?
-En los MacBooks recientes con "Notch" (isla de la cámara), si tienes muchas aplicaciones abiertas, macOS puede ocultar los iconos que queden detrás del notch. Puedes usar herramientas como *Hidden Bar*, *Ice* o *Bartender*, o cerrar temporalmente iconos que no uses para que se vuelva visible.
-
-### 3. ¿Cómo puedo cerrar la aplicación por completo?
-Puedes ejecutar en tu terminal:
-```bash
-cd /Users/victormanuel/discord-rpc
-./stop.sh
-```
-O buscar `app_gui.py` en la app **Monitor de Actividad** de macOS y pulsar forzar salida.
-
-### 4. ¿Cómo actualizo el código si hay cambios en el repositorio?
-Solo ejecuta:
+### 4. ¿Cómo se actualiza la aplicación tras cambios locales?
 ```bash
 git pull origin main
 python sync_bundle.py
-./stop.sh && ./start.sh
 ```
-
-### 5. ¿El repositorio contiene datos privados o credenciales de mi cuenta de Discord?
-**No, en absoluto.** La tecnología de Discord Rich Presence no utiliza correos, contraseñas ni tokens de usuario:
-- Se comunica directamente mediante el socket local del sistema operativo (`/tmp/discord-ipc-0` en macOS).
-- Cualquier persona que descargue este proyecto y lo abra en su Mac verá su presencia reflejada **automáticamente en su propia cuenta de Discord** abierta en ese equipo.
-- No hay ningún dato confidencial en el repositorio.
-
-### 6. ¿Cómo puede otra persona usar su propia aplicación de Discord? (Opcional)
-La app viene configurada con el Client ID oficial de League of Legends para funcionar **inmediatamente sin configuración adicional**.
-
-Si alguien desea crear su propia aplicación personalizada desde cero:
-1. Entra a [Discord Developer Portal](https://discord.com/developers/applications).
-2. Haz clic en **New Application**, asígnale el nombre que prefieras y sube los iconos en la pestaña **Rich Presence**.
-3. Copia el **Application ID (Client ID)**.
-4. En macOS, puedes definir tu ID antes de iniciar la app mediante la variable de entorno:
-   ```bash
-   export DISCORD_CLIENT_ID="tu_client_id_aqui"
-   open -a "/Applications/League of Legends RPC.app"
-   ```
-   O modificar directamente `DEFAULT_CLIENT_ID` en `discord_rpc_manager.py`.
 
 ---
 
-## 📄 Licencia
+## Licencia
 
-Este proyecto está bajo la Licencia **MIT**. Consulta el código para más detalles.  
-*League of Legends* y *Riot Games* son marcas comerciales registradas de Riot Games, Inc.  
+Este proyecto se distribuye bajo la Licencia **MIT**. Consulta el código fuente para más detalles.
+
+*League of Legends* y *Riot Games* son marcas registradas de Riot Games, Inc.  
 *Discord* es una marca registrada de Discord, Inc.
